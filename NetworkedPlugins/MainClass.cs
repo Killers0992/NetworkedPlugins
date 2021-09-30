@@ -1,6 +1,7 @@
 namespace NetworkedPlugins
 {
     using Exiled.API.Features;
+    using System;
 
     /// <inheritdoc/>
     public class MainClass : Plugin<PluginConfig>
@@ -21,6 +22,12 @@ namespace NetworkedPlugins
 
         /// <inheritdoc/>
         public override string Author { get; } = "Killers0992";
+
+        /// <inheritdoc/>
+        public override Version Version { get; } = new Version(1, 0, 0);
+
+        /// <inheritdoc/>
+        public override Version RequiredExiledVersion { get; } = new Version(3, 0, 0);
 
         /// <inheritdoc/>
         public override void OnEnabled()
