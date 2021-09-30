@@ -16,6 +16,11 @@ Connect SL servers and send data between them.
 - If you have more than 1 SL server you can use [that](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-sl-server-to-host).
 - If you have way hosting dedicated app use [this](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-dedicated-app-to-host).
 
+6. How connect?
+
+- ``IsHost`` this time is set to ``false`` and you need to use same ``host_connection_key`` from Host server or DedicatedApp to properly connect to that server,
+also you need to have same ``host_port``.
+
 # USING SL SERVER TO HOST
 
 - Server must have in config IsHost set to true
@@ -28,15 +33,9 @@ Connect SL servers and send data between them.
 - ``./NetworkedPlugins.Dedicated`` ( LINUX )
 - ``./NetworkedPlugins.Dedicated.exe`` ( WINDOWS ) 
 
-6. How connect?
-
-- ``IsHost`` this time is set to ``false`` and you need to use same ``host_connection_key`` from Host server or DedicatedApp to properly connect to that server,
-also you need to have same ``host_port``.
+# Some info:
 
 If your host server and server which connects is on localhost you dont need to change ``host_address`` but if its on other machine then you need to set that value to public ip.
-
-
-# Some info:
 
 ``host_connection_key`` - Its just password which its needed while connecting to other servers.
 
