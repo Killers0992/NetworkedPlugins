@@ -102,7 +102,7 @@ namespace NetworkedPlugins.Dedicated
                             return;
 
                         Addons.Add(addon.AddonId, addon);
-                        Logger.Info($"Loading addon {addon.AddonVersion}.");
+                        Logger.Info($"Loading addon \"{addon.AddonName}\" ({addon.AddonVersion}) made by {addon.AddonAuthor}.");
                         addon.OnEnable();
                         Logger.Info($"Waiting to client connections..");
                         foreach (var type in a.GetTypes())
