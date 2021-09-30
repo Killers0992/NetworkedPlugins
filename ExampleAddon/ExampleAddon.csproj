@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>ExampleAddon</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetworkedPlugins.API\NetworkedPlugins.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EXILED" Version="2.14.0" />
+    <PackageReference Include="YamlDotNet" Version="9.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(EXILED_REFERENCES)\Assembly-CSharp-Publicized.dll" Private="false" />
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="$(EXILED_REFERENCES)\Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="NorthwoodLib" HintPath="$(EXILED_REFERENCES)\NorthwoodLib.dll" Private="false" />
+    <Reference Include="UnityEngine.AudioModule" HintPath="$(EXILED_REFERENCES)\UnityEngine.AudioModule.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(EXILED_REFERENCES)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="CommandSystem.Core" HintPath="$(EXILED_REFERENCES)\CommandSystem.Core.dll" Private="false" />
+    <Reference Include="Mirror" HintPath="$(EXILED_REFERENCES)\Mirror.dll" Private="false" />
+    <Reference Include="System.ComponentModel.DataAnnotations" Private="false" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\Build\Example Addon&quot;" />
+  </Target>
+
+</Project>
