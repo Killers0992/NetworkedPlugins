@@ -13,8 +13,8 @@ Connect SL servers and send data between them.
 4. Put example addon from ``Example Addon`` dictionary in ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
 
 5. How host?
-- If you have more than 1 SL server you can use [that]().
-- If you have way hosting dedicated app use [this]().
+- If you have more than 1 SL server you can use [that](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-sl-server-to-host).
+- If you have way hosting dedicated app use [this](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-dedicated-app-to-host).
 
 # USING SL SERVER TO HOST
 
