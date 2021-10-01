@@ -43,7 +43,7 @@ If your host server and server which connects is on localhost you dont need to c
 
 
 # Example Addon
-[LINK](https://github.com/Killers0992/EXILED/tree/dev/Exiled.NetworkExample)
+[LINK](https://github.com/Killers0992/NetworkedPlugins/tree/master/ExampleAddon)
 
 Addon classes are seperated soo addons can run without SL Server and with,
 if you will use SL/Exiled methods in class which inherits NPAddonDedicated then that will not work, you need to inherit NPAddonClient or NPAddonHost
