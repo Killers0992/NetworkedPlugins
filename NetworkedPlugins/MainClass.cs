@@ -24,7 +24,7 @@ namespace NetworkedPlugins
         public override string Author { get; } = "Killers0992";
 
         /// <inheritdoc/>
-        public override Version Version { get; } = new Version(1, 0, 0);
+        public override Version Version { get; } = new Version(1, 0, 1);
 
         /// <inheritdoc/>
         public override Version RequiredExiledVersion { get; } = new Version(3, 0, 0);

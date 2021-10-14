@@ -96,12 +96,12 @@ namespace NetworkedPlugins.Dedicated
                             Logger.Error($"Addon {addon.AddonName} already already registered with id {addon.AddonId}.");
                             break;
                         }
-
+                        Addons.Add(addon.AddonId, addon);
                         LoadAddonConfig(addon.AddonId);
+
                         if (!addon.Config.IsEnabled)
                             return;
 
-                        Addons.Add(addon.AddonId, addon);
                         Logger.Info($"Loading addon \"{addon.AddonName}\" ({addon.AddonVersion}) made by {addon.AddonAuthor}.");
                         addon.OnEnable();
                         Logger.Info($"Waiting to client connections..");

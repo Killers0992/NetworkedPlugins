@@ -8,6 +8,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Killers0992</Authors>
+    <PackageProjectUrl>https://github.com/Killers0992/NetworkedPlugins</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Killers0992/NetworkedPlugins</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
