@@ -4,13 +4,13 @@ Connect SL servers and send data between them.
 
 # Setup
 
-1. Unzip ``NetworkedPlugins.zip``
+1. Download [Plugin](github.com/Killers0992/NetworkedPlugins/releases/latest/download/NetworkedPlugins.dll) and needed [dependency](github.com/Killers0992/NetworkedPlugins/releases/latest/download/NetworkedPlugins.API.dll).
 
-2. Everything from Exiled Plugin dictionary move to ``Exiled/Plugins``.
+2. Move ``NetworkedPlugins.dll`` to ``Exiled/Plugins`` and ``NetworkedPlugins.API.dll`` to ``Exiled/Plugins/dependencies``.
 
 3. Start server and wait when plugin generates ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
 
-4. Put example addon from ``Example Addon`` dictionary in ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
+4. Put [example addon](github.com/Killers0992/NetworkedPlugins/releases/latest/download/ExampleAddon.dll) in ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
 
 5. How host?
 - If you have more than 1 SL server you can use [that](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-sl-server-to-host).
@@ -28,8 +28,8 @@ also you need to have same ``host_port``.
 
 # USING Dedicated APP to HOST
 
-- In Dedicated App dictionary take ``Windows/Linux`` ( depends on your server OS )
-- Move all files from ``Dedicated App/(Windows/Linux)`` to your server and run 
+- Take [Windows](github.com/Killers0992/NetworkedPlugins/releases/latest/download/DedicatedApp-Windows.zip)/[Linux](github.com/Killers0992/NetworkedPlugins/releases/latest/download/DedicatedApp-Linux.zip) ( depends on your server OS )
+- Move all files from downloaded zip to your server and run 
 - ``./NetworkedPlugins.Dedicated`` ( LINUX )
 - ``./NetworkedPlugins.Dedicated.exe`` ( WINDOWS ) 
 
@@ -43,7 +43,7 @@ If your host server and server which connects is on localhost you dont need to c
 
 
 # Example Addon
-[LINK](https://github.com/Killers0992/EXILED/tree/dev/Exiled.NetworkExample)
+[LINK](https://github.com/Killers0992/NetworkedPlugins/tree/master/ExampleAddon)
 
 Addon classes are seperated soo addons can run without SL Server and with,
 if you will use SL/Exiled methods in class which inherits NPAddonDedicated then that will not work, you need to inherit NPAddonClient or NPAddonHost
