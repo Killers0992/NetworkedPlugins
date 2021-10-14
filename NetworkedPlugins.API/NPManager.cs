@@ -117,14 +117,14 @@ namespace NetworkedPlugins.API
         {
             if (Addons.TryGetValue(addonId, out IAddon<IConfig> npdi))
             {
-                if (!Directory.Exists(Path.Combine(npdi.DefaultPath, npdi.AddonName)))
-                    Directory.CreateDirectory(Path.Combine(npdi.DefaultPath, npdi.AddonName));
+                if (!Directory.Exists(npdi.AddonPath))
+                    Directory.CreateDirectory(npdi.AddonPath);
 
-                if (!File.Exists(Path.Combine(npdi.DefaultPath, npdi.AddonName, "config.yml")))
-                    File.WriteAllText(Path.Combine(npdi.DefaultPath, npdi.AddonName, "config.yml"), Serializer.Serialize(npdi.Config));
+                if (!File.Exists(Path.Combine(npdi.AddonPath, "config.yml")))
+                    File.WriteAllText(Path.Combine(npdi.AddonPath, "config.yml"), Serializer.Serialize(npdi.Config));
 
-                var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(npdi.DefaultPath, npdi.AddonName, "config.yml")), npdi.Config.GetType());
-                File.WriteAllText(Path.Combine(npdi.DefaultPath, npdi.AddonName, "config.yml"), Serializer.Serialize(cfg));
+                var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(npdi.AddonPath, "config.yml")), npdi.Config.GetType());
+                File.WriteAllText(Path.Combine(npdi.AddonPath, "config.yml"), Serializer.Serialize(cfg));
                 npdi.Config.CopyProperties(cfg);
             }
         }
