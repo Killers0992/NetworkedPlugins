@@ -22,6 +22,8 @@ namespace NetworkedPlugins
     using Mirror;
 
     using static Broadcast;
+    using RemoteAdmin;
+    using NetworkedPlugins.API.Enums;
 
     /// <summary>
     /// Network client.
@@ -35,7 +37,6 @@ namespace NetworkedPlugins
         private CoroutineHandle sendPlayerInfo;
         private CoroutineHandle dataChecker;
         private Dictionary<string, NPPlayer> players = new Dictionary<string, NPPlayer>();
-        private List<CommandInfoPacket> registerdCommands = new List<CommandInfoPacket>();
         private NetDataWriter defaultdata;
 
         /// <summary>
@@ -133,32 +134,6 @@ namespace NetworkedPlugins
             StartNetworkClient();
         }
 
-        /// <inheritdoc/>
-        public override void OnRegisterCommand(CommandInfoPacket cmd)
-        {
-            var command = new TemplateCommand();
-            command.AssignedAddonID = cmd.AddonID;
-            command.DummyCommand = cmd.CommandName;
-            command.DummyDescription = cmd.Description;
-            command.Permission = cmd.Permission;
-
-            cmd.Command = command;
-
-            if (cmd.IsRaCommand)
-                MainClass.Singleton.Commands[typeof(RemoteAdminCommandHandler)].Add(cmd.GetType(), command);
-            else
-                MainClass.Singleton.Commands[typeof(ClientCommandHandler)].Add(cmd.GetType(), command);
-        }
-
-        /// <inheritdoc/>
-        public override void OnUnregisterCommand(CommandInfoPacket cmd)
-        {
-            if (cmd.IsRaCommand)
-                MainClass.Singleton.Commands[typeof(RemoteAdminCommandHandler)].Remove(cmd.Command.GetType());
-            else
-                MainClass.Singleton.Commands[typeof(ClientCommandHandler)].Remove(cmd.Command.GetType());
-        }
-
         /// <summary>
         /// Unload network client.
         /// </summary>
@@ -195,12 +170,26 @@ namespace NetworkedPlugins
         {
             Logger.Info($"Client disconnected from host. (Info: {disconnectInfo.Reason.ToString()})");
             Timing.RunCoroutine(Reconnect());
-            foreach (var command in registerdCommands)
+
+            foreach(var commandTypes in Commands)
             {
-                command.UnregisterCommand();
+                foreach(var command in commandTypes.Value)
+                {
+                    switch (commandTypes.Key)
+                    {
+                        case CommandType.RemoteAdmin:
+                            CommandProcessor.RemoteAdminCommandHandler.UnregisterCommand(command.Value);
+                            break;
+                        case CommandType.GameConsole:
+                            QueryProcessor.DotCommandHandler.UnregisterCommand(command.Value);
+                            break;
+                    }
+                    Logger.Info($"Command {command.Value.Command} unregistered from addon.");
+                }
             }
 
-            registerdCommands.Clear();
+            Commands[CommandType.GameConsole].Clear();
+            Commands[CommandType.RemoteAdmin].Clear();
             canSendData = false;
             if (dataChecker != null)
                 Timing.KillCoroutines(dataChecker);
@@ -634,12 +623,33 @@ namespace NetworkedPlugins
             canSendData = true;
         }
 
+        private Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>> Commands = new Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>()
+        {
+            { CommandType.GameConsole, new Dictionary<string, CommandSystem.ICommand>() },
+            { CommandType.RemoteAdmin, new Dictionary<string, CommandSystem.ICommand>() },
+        };
+
         private void OnReceiveCommandsData(ReceiveCommandsPacket packet, NetPeer peer)
         {
-            registerdCommands = packet.Commands;
-            foreach (var command in registerdCommands)
+            foreach(var pCmd in packet.Commands)
             {
-                Logger.Info($"Command {command.CommandName} registered from addon {command.AddonID}, isRa?: {command.IsRaCommand}");
+                var command = new TemplateCommand();
+                command.AssignedAddonID = pCmd.AddonID;
+                command.DummyCommand = pCmd.CommandName;
+                command.DummyDescription = pCmd.Description;
+                command.Permission = pCmd.Permission;
+
+                if (pCmd.IsRaCommand)
+                {
+                    Commands[CommandType.RemoteAdmin].Add(pCmd.CommandName.ToUpper(), command);
+                    CommandProcessor.RemoteAdminCommandHandler.RegisterCommand(command);
+                }
+                else
+                {
+                    Commands[CommandType.GameConsole].Add(pCmd.CommandName.ToUpper(), command);
+                    QueryProcessor.DotCommandHandler.RegisterCommand(command);
+                }
+                Logger.Info($"Command {pCmd.CommandName} registered from addon {pCmd.AddonID}");
             }
         }
 

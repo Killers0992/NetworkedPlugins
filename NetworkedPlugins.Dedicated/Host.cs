@@ -30,6 +30,7 @@ namespace NetworkedPlugins.Dedicated
         public Host()
         {
             Logger = new ConsoleLogger();
+            Singleton = this;
 
             NetDebug.Logger = new NetworkLogger();
 
@@ -300,7 +301,10 @@ namespace NetworkedPlugins.Dedicated
             if (!Servers.TryGetValue(peer, out NPServer server))
                 return;
             if (!server.Players.TryGetValue(packet.UserID, out NPPlayer player))
+            {
+                Logger.Error($"Player {packet.UserID} tried executing command {packet.CommandName.ToUpper()} but its offline.");
                 return;
+            }
             ExecuteCommand(player, packet.AddonID, packet.CommandName, packet.Arguments.ToList());
         }
 
@@ -348,7 +352,7 @@ namespace NetworkedPlugins.Dedicated
             foreach (var i in packet.AddonIds.Where(p => Addons.ContainsKey(p)).Select(s => Addons[s]))
             {
                 Servers[peer].Addons.Add(i);
-                adds += $"{i.AddonName} - {i.AddonVersion}v made by {i.AddonAuthor}" + Environment.NewLine;
+                adds += Environment.NewLine + $"{i.AddonName} - {i.AddonVersion}v made by {i.AddonAuthor}";
                 i.OnReady(Servers[peer]);
                 cmds.AddRange(GetCommands(i.AddonId));
                 addonsId.Add(i.AddonId);

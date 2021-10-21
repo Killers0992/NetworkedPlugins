@@ -32,6 +32,7 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnEnabled()
         {
+            Singleton = this;
             if (Config.IsHost)
                 host = new NPHost(this);
             else
@@ -42,6 +43,7 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnDisabled()
         {
+            Singleton = null;
             if (client != null)
             {
                 client.Unload();

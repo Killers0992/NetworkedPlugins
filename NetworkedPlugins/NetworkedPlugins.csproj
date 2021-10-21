@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="EXILED" Version="2.14.0" />
+    <PackageReference Include="EXILED" Version="3.0.5" />
     <PackageReference Include="YamlDotNet" Version="9.1.4" />
   </ItemGroup>
 

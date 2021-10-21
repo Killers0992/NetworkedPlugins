@@ -1,5 +1,6 @@
 namespace NetworkedPlugins.API
 {
+    using System;
     using System.Collections.Generic;
     using System.IO;
     using LiteNetLib;
@@ -74,24 +75,14 @@ namespace NetworkedPlugins.API
             if (!Commands.ContainsKey(addon.AddonId))
                 Commands.Add(addon.AddonId, new Dictionary<string, ICommand>());
 
+            if (Commands[addon.AddonId].ContainsKey(command.CommandName.ToUpper()))
+            {
+                Logger.Info($"Command {command.CommandName.ToUpper()} is already registered in addon {addon.AddonName}!");
+                return;
+            }
+
             Commands[addon.AddonId].Add(command.CommandName.ToUpper(), command);
             Logger.Info($"Command {command.CommandName.ToUpper()} registered in addon {addon.AddonName}");
-        }
-
-        /// <summary>
-        /// Register command.
-        /// </summary>
-        /// <param name="cmd">Command.</param>
-        public virtual void OnRegisterCommand(CommandInfoPacket cmd)
-        {
-        }
-
-        /// <summary>
-        /// Unregister command.
-        /// </summary>
-        /// <param name="cmd">Command.</param>
-        public virtual void OnUnregisterCommand(CommandInfoPacket cmd)
-        {
         }
 
         /// <summary>
@@ -103,9 +94,17 @@ namespace NetworkedPlugins.API
         /// <param name="arguments">Command arguments.</param>
         public void ExecuteCommand(PlayerFuncs plr, string addonId, string commandName, List<string> arguments)
         {
-            if (Commands[addonId].ContainsKey(commandName.ToUpper()))
+            if (Commands[addonId].TryGetValue(commandName.ToUpper(), out ICommand cmd))
             {
-                Commands[addonId][commandName.ToUpper()].Invoke(plr, arguments);
+                Logger.Info($"{plr.UserName} ({plr.UserID}) executed command \"{commandName.ToUpper()}\" with arguments \"{string.Join(" ", arguments)}\".");
+                try
+                {
+                    cmd.Invoke(plr, arguments);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed executing command {commandName}, {ex}");
+                }
             }
         }
 

@@ -7,6 +7,7 @@ namespace NetworkedPlugins
     using NetworkedPlugins.API.Packets;
     using Exiled.Permissions.Extensions;
     using LiteNetLib;
+    using System.Linq;
 
     /// <summary>
     /// Template command.
@@ -51,7 +52,8 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
-            Player p = Player.Get((CommandSender)sender);
+
+            Player p = Player.Get(sender);
             if (p == null)
             {
                 response = "Player not found";
@@ -68,7 +70,14 @@ namespace NetworkedPlugins
             }
 
             skipPermCheck:
-            NPManager.Singleton.PacketProcessor.Send<ExecuteCommandPacket>(NPManager.Singleton.NetworkListener, new ExecuteCommandPacket() { UserID = p.UserId, AddonID = AssignedAddonID, CommandName = this.Command, Arguments = arguments.Array }, DeliveryMethod.ReliableOrdered);
+            NPManager.Singleton.PacketProcessor.Send<ExecuteCommandPacket>(NPManager.Singleton.NetworkListener, 
+                new ExecuteCommandPacket() 
+                { 
+                    UserID = p.UserId, 
+                    AddonID = AssignedAddonID, 
+                    CommandName = this.Command, 
+                    Arguments = arguments.ToArray() 
+                }, DeliveryMethod.ReliableOrdered);
             response = string.Empty;
             return false;
         }

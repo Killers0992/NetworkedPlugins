@@ -1,6 +1,7 @@
 namespace NetworkedPlugins.API.Packets
 {
     using LiteNetLib.Utils;
+    using System;
 
     /// <summary>
     /// Command info.
@@ -33,11 +34,6 @@ namespace NetworkedPlugins.API.Packets
         public bool IsRaCommand;
 
         /// <summary>
-        /// Gets generated command.
-        /// </summary>
-        public object Command;
-
-        /// <summary>
         /// Deserialize.
         /// </summary>
         /// <param name="reader">Data reader.</param>
@@ -48,16 +44,6 @@ namespace NetworkedPlugins.API.Packets
             Description = reader.GetString();
             Permission = reader.GetString();
             IsRaCommand = reader.GetBool();
-
-            NPManager.Singleton.OnRegisterCommand(this);
-        }
-
-        /// <summary>
-        /// Unregister command.
-        /// </summary>
-        public void UnregisterCommand()
-        {
-            NPManager.Singleton.OnUnregisterCommand(this);
         }
 
         /// <summary>
