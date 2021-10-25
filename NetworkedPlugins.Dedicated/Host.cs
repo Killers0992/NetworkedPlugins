@@ -354,9 +354,11 @@ namespace NetworkedPlugins.Dedicated
                 Servers[peer].Addons.Add(i);
                 adds += Environment.NewLine + $"{i.AddonName} - {i.AddonVersion}v made by {i.AddonAuthor}";
                 i.OnReady(Servers[peer]);
-                cmds.AddRange(GetCommands(i.AddonId));
                 addonsId.Add(i.AddonId);
             }
+
+            foreach (var addon in Addons)
+                cmds.AddRange(GetCommands(addon.Value.AddonId));
 
             Logger.Info($"Received addons from server {server.FullAddress}, {adds}");
             PacketProcessor.Send<ReceiveCommandsPacket>(peer, new ReceiveCommandsPacket() { Commands = cmds }, DeliveryMethod.ReliableOrdered);

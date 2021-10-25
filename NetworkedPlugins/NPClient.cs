@@ -242,26 +242,20 @@ namespace NetworkedPlugins
         private void Player_Verified(VerifiedEventArgs ev)
         {
             if (!players.ContainsKey(ev.Player.UserId))
-            {
                 players.Add(ev.Player.UserId, new NPPlayer(null, ev.Player.UserId));
-            }
         }
 
         private void Player_Destroying(DestroyingEventArgs ev)
         {
             if (players.ContainsKey(ev.Player.UserId))
-            {
                 players.Remove(ev.Player.UserId);
-            }
         }
 
         private IEnumerator<float> DataCheckers()
         {
             players = new Dictionary<string, NPPlayer>();
             foreach (var plr in Player.List)
-            {
                 players.Add(plr.UserId, new NPPlayer(null, plr.UserId));
-            }
 
             UpdatePlayers();
             while (true)
