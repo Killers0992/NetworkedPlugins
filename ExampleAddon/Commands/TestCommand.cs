@@ -1,7 +1,9 @@
 namespace ExampleAddon.Commands
 {
     using System.Collections.Generic;
+    using NetworkedPlugins.API.Enums;
     using NetworkedPlugins.API.Interfaces;
+    using NetworkedPlugins.API.Structs;
 
     /// <inheritdoc/>
     public class TestCommand : ICommand
@@ -16,10 +18,10 @@ namespace ExampleAddon.Commands
         public string Permission { get; } = string.Empty;
 
         /// <inheritdoc/>
-        public bool IsRaCommand => true;
+        public CommandType Type => CommandType.RemoteAdmin;
 
         /// <inheritdoc/>
-        public void Invoke(PlayerFuncs player, List<string> arguments)
+        public void Invoke(NPPlayer player, string[] arguments)
         {
             player.SendRAMessage("Test response");
         }

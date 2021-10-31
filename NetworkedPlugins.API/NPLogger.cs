@@ -24,6 +24,6 @@ namespace NetworkedPlugins.API
         /// Server must have exiled_debug config enabled.
         /// </summary>
         /// <param name="message">The message to be sent.</param>
-        public abstract void Debug(string message);
+        public abstract void Debug(string message, bool isDebug = false);
     }
 }

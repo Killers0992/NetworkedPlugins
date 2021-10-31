@@ -29,6 +29,10 @@
     <Reference Include="System.ComponentModel.DataAnnotations" Private="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Patches\" />
+  </ItemGroup>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="xcopy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\Build\Exiled Plugin&quot;" />
   </Target>

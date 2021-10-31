@@ -4,14 +4,14 @@ namespace ExampleAddon
     using System.Collections.Generic;
 
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Models;
+    using NetworkedPlugins.API.Structs;
 
     using LiteNetLib.Utils;
 
     /// <summary>
     /// Example dedicated addon.
     /// </summary>
-    public class ExampleAddonDedicated : NPAddonDedicated<AddonConfig>
+    public class ExampleAddonDedicated : NPAddonDedicated<AddonConfig, AddonConfig>
     {
         /// <inheritdoc/>
         public override string AddonAuthor { get; } = "Killers0992";
@@ -32,23 +32,17 @@ namespace ExampleAddon
         }
 
         /// <inheritdoc/>
-        public override void OnReady(NPServer server)
+        public override void OnMessageReceived(NetDataReader reader)
         {
-            Logger.Info("Addon is ready");
-        }
-
-        /// <inheritdoc/>
-        public override void OnMessageReceived(NPServer server, NetDataReader reader)
-        {
-            Logger.Info($"Received message from server {server.ServerAddress}:{server.ServerPort}");
-            foreach (var plr in server.Players.Values)
+            Logger.Info($"Received message from server {Server.ServerAddress}:{Server.ServerPort}");
+            foreach (var plr in Server.Players)
             {
-                Logger.Info($"Player {plr.UserName} {plr.UserID}");
+                Logger.Info($"Player {plr.Nickname} {plr.UserID}");
             }
 
             NetDataWriter writer = new NetDataWriter();
             writer.Put("Response");
-            SendData(server.ServerAddress, server.ServerPort, writer);
+            SendData(writer);
         }
 
         /// <inheritdoc/>
@@ -60,12 +54,6 @@ namespace ExampleAddon
                     Logger.Info("Test response");
                     break;
             }
-        }
-
-        /// <inheritdoc/>
-        public override void OnConsoleResponse(NPServer server, string command, string response, bool isRa)
-        {
-            Logger.Info($"Received command response from server {server.FullAddress}, command name: {command}, response: {response}.");
         }
     }
 }

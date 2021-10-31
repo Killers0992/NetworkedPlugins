@@ -11,11 +11,16 @@ namespace NetworkedPlugins.Dedicated
 
     using NetworkedPlugins.API;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Models;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
 
     using LiteNetLib;
     using LiteNetLib.Utils;
+    using NetworkedPlugins.API.Enums;
+    using System.Text;
+    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Packets.ClientPackets;
+    using NetworkedPlugins.API.Events.Player;
+    using NetworkedPlugins.API.Extensions;
 
     /// <summary>
     /// Dedicated host.
@@ -42,6 +47,9 @@ namespace NetworkedPlugins.Dedicated
             if (!Directory.Exists("addons"))
                 Directory.CreateDirectory("addons");
 
+            if (!Directory.Exists("servers"))
+                Directory.CreateDirectory("servers");
+
             string[] addonsFiles = Directory.GetFiles("addons", "*.dll");
             Logger.Info($"Loading {addonsFiles.Length} addons.");
             foreach (var file in addonsFiles)
@@ -52,24 +60,21 @@ namespace NetworkedPlugins.Dedicated
                     string addonID = string.Empty;
                     foreach (Type t in a.GetTypes().Where(type => !type.IsAbstract && !type.IsInterface))
                     {
-                        if (!t.BaseType.IsGenericType || t.BaseType.GetGenericTypeDefinition() != typeof(NPAddonDedicated<>))
-                        {
+                        if (!t.BaseType.IsGenericType || t.BaseType.GetGenericTypeDefinition() != typeof(NPAddonDedicated<,>))
                             continue;
-                        }
 
-                        IAddon<IConfig> addon = null;
-
+                        IAddonDedicated<IConfig, IConfig> addon = null;
                         var constructor = t.GetConstructor(Type.EmptyTypes);
                         if (constructor != null)
                         {
-                            addon = constructor.Invoke(null) as IAddon<IConfig>;
+                            addon = constructor.Invoke(null) as IAddonDedicated<IConfig, IConfig>;
                         }
                         else
                         {
                             var value = Array.Find(t.GetProperties(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public), property => property.PropertyType == t)?.GetValue(null);
 
                             if (value != null)
-                                addon = value as IAddon<IConfig>;
+                                addon = value as IAddonDedicated<IConfig, IConfig>;
                         }
 
                         if (addon == null)
@@ -92,26 +97,74 @@ namespace NetworkedPlugins.Dedicated
                         field = property.GetBackingField();
                         field.SetValue(addon, Logger);
 
-                        if (Addons.ContainsKey(addon.AddonId))
-                        {
-                            Logger.Error($"Addon {addon.AddonName} already already registered with id {addon.AddonId}.");
-                            break;
-                        }
-                        Addons.Add(addon.AddonId, addon);
-                        LoadAddonConfig(addon.AddonId);
+                        LoadAddonConfig(addon);
 
                         if (!addon.Config.IsEnabled)
                             return;
 
-                        Logger.Info($"Loading addon \"{addon.AddonName}\" ({addon.AddonVersion}) made by {addon.AddonAuthor}.");
-                        addon.OnEnable();
-                        foreach (var type in a.GetTypes())
+                        foreach(var type in a.GetTypes().Where(type => !type.IsAbstract && !type.IsInterface))
                         {
-                            if (typeof(ICommand).IsAssignableFrom(type))
+                            if (!type.BaseType.IsGenericType || type.BaseType.GetGenericTypeDefinition() != typeof(NPAddonHandler<>))
+                                continue;
+
+                            IAddonHandler<IConfig> addonHandler = null;
+                            var constructor2 = type.GetConstructor(Type.EmptyTypes);
+                            if (constructor != null)
                             {
-                                ICommand cmd = (ICommand)Activator.CreateInstance(type);
-                                RegisterCommand(addon, cmd);
+                                addonHandler = constructor2.Invoke(null) as IAddonHandler<IConfig>;
                             }
+                            else
+                            {
+                                var value = Array.Find(type.GetProperties(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public), property => property.PropertyType == type)?.GetValue(null);
+
+                                if (value != null)
+                                    addonHandler = value as IAddonHandler<IConfig>;
+                            }
+
+                            if (addonHandler == null)
+                                continue;
+
+                            var addonType2 = addonHandler.GetType();
+
+                            var property2 = addonType2.GetProperty("Manager", BindingFlags.Public | BindingFlags.Instance);
+                            var field2 = property2.GetBackingField();
+                            field2.SetValue(addonHandler, this);
+
+                            property2 = addonType2.GetProperty("Logger", BindingFlags.Public | BindingFlags.Instance);
+                            field2 = property2.GetBackingField();
+                            field2.SetValue(addonHandler, Logger);
+
+                            property2 = addonType2.GetProperty("DefaultAddon", BindingFlags.Public | BindingFlags.Instance);
+                            field2 = property2.GetBackingField();
+                            field2.SetValue(addonHandler, addon);
+
+                            try
+                            {
+                                addonHandler.OnEnable();
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"Failed executing OnEnable in addon handler {addon.AddonName}. {ex.ToString()}");
+                            }
+
+                            if (DedicatedAddonHandlers.ContainsKey(addon.AddonId))
+                            {
+                                Logger.Error($"Addon with id \"{addon.AddonId}\" ({addon.AddonName}) is already registered!");
+                                break;
+                            }
+
+                            foreach (var Cmdtype in a.GetTypes())
+                            {
+                                if (typeof(ICommand).IsAssignableFrom(Cmdtype))
+                                {
+                                    ICommand cmd = (ICommand)Activator.CreateInstance(Cmdtype);
+                                    RegisterCommand(addon, cmd);
+                                }
+                            }
+
+                            AddonAssemblies.Add(a, addon.AddonId);
+                            DedicatedAddonHandlers.Add(addon.AddonId, addonHandler);
+                            break;
                         }
                     }
                 }
@@ -126,17 +179,15 @@ namespace NetworkedPlugins.Dedicated
         }
 
         /// <inheritdoc/>
-        public void OnPeerConnected(NetPeer peer)
-        {
-            Logger.Info($"Client {peer.EndPoint.Address.ToString()} connected to host.");
-        }
+        public void OnPeerConnected(NetPeer peer) { }
 
         /// <inheritdoc/>
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             if (Servers.TryGetValue(peer, out NPServer server))
             {
-                Logger.Info($"Client {server.FullAddress} disconnected from host. (Info: {disconnectInfo.Reason.ToString()})");
+                server.UninitServer();
+                Logger.Info($"Server \"{server.FullAddress}\" disconnected from host. (Info: {disconnectInfo.Reason.ToString()})");
                 Servers.Remove(peer);
             }
         }
@@ -173,39 +224,73 @@ namespace NetworkedPlugins.Dedicated
         /// <inheritdoc/>
         public void OnConnectionRequest(ConnectionRequest request)
         {
-            if (request.Data.TryGetString(out string key))
+            if (!request.Data.TryGetString(out string key))
+                return;
+
+            if (key != config.HostConnectionKey && !string.IsNullOrEmpty(config.HostConnectionKey))
+                return;
+
+            if (!request.Data.TryGetString(out string version))
+                return;
+
+            if (Version.TryParse(version, out Version receivedVersion))
             {
-                if (key == config.HostConnectionKey)
+                if (receivedVersion.CompareTo(NPVersion.Version) < 0)
                 {
-                    if (request.Data.TryGetUShort(out ushort port))
-                    {
-                        if (request.Data.TryGetInt(out int maxplayers))
-                        {
-                            var peer = request.Accept();
-                            if (!Servers.ContainsKey(peer))
-                                Servers.Add(peer, new NPServer(peer, PacketProcessor, peer.EndPoint.Address.ToString(), port, maxplayers));
-                            else
-                                Servers[peer] = new NPServer(peer, PacketProcessor, peer.EndPoint.Address.ToString(), port, maxplayers);
-                            Logger.Info($"New server added {peer.EndPoint.Address.ToString()}, port: {port}");
-                            return;
-                        }
-                    }
+                    NetDataWriter writer = new NetDataWriter();
+                    writer.Put((byte)RejectType.OutdatedVersion);
+                    writer.Put(NPVersion.Version.ToString(3));
+                    request.Reject(writer);
+                    return;
                 }
             }
+
+            if (!request.Data.TryGetUShort(out ushort port))
+                return;
+
+            if (!request.Data.TryGetInt(out int maxplayers))
+                return;
+
+            if (!request.Data.TryGetStringArray(out string[] addons))
+                return;
+
+            if (!request.Data.TryGetBytesWithLength(out byte[] token))
+                return;
+
+            var server = new NPServer(PacketProcessor, request.RemoteEndPoint.Address.ToString(), port, maxplayers);
+
+            var Addons = addons.ToList();
+            Addons.AddRange(config.DefaultAddons);
+
+            if (!server.InitServer(request, Encoding.UTF8.GetString(token), Addons))
+                return;
+
+            try
+            {
+                server.LoadInstalledAddons();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed loading addons for server \"{server.FullAddress}\".\n{ex}");
+            }
+
+            Servers.Add(server.Peer, server);
+            Logger.Info($"New server connected \"{server.FullAddress}\".");
         }
 
         private void StartNetworkHost()
         {
-            PacketProcessor.RegisterNestedType<CommandInfoPacket>();
-            PacketProcessor.RegisterNestedType<PlayerInfoPacket>();
+            PacketProcessor.RegisterNestedType<CommandInfo>();
+            PacketProcessor.RegisterNestedType<PlayerInfo>();
             PacketProcessor.RegisterNestedType<Position>();
             PacketProcessor.RegisterNestedType<Rotation>();
-            PacketProcessor.SubscribeReusable<ReceiveAddonsPacket, NetPeer>(OnReceiveAddons);
-            PacketProcessor.SubscribeReusable<ReceiveAddonDataPacket, NetPeer>(OnReceiveAddonData);
-            PacketProcessor.SubscribeReusable<ReceivePlayersDataPacket, NetPeer>(OnReceivePlayersData);
+            PacketProcessor.RegisterNestedType<AddonInfo>();
+            PacketProcessor.SubscribeReusable<AddonDataPacket, NetPeer>(OnReceiveAddonData);
             PacketProcessor.SubscribeReusable<ExecuteCommandPacket, NetPeer>(OnExecuteCommand);
             PacketProcessor.SubscribeReusable<UpdatePlayerInfoPacket, NetPeer>(OnUpdatePlayerInfo);
             PacketProcessor.SubscribeReusable<ConsoleResponsePacket, NetPeer>(OnConsoleResponse);
+            PacketProcessor.SubscribeReusable<AddonOkPacket, NetPeer>(OnAddonOk);
+            PacketProcessor.SubscribeReusable<EventPacket, NetPeer>(OnReceiveEvent);
             NetworkListener = new NetManager(this);
             Logger.Info($"IP: {config.HostAddress}");
             Logger.Info($"Port: {config.HostPort}");
@@ -216,15 +301,117 @@ namespace NetworkedPlugins.Dedicated
             });
         }
 
+        private void OnReceiveEvent(EventPacket packet, NetPeer peer)
+        {
+            if (!Servers.TryGetValue(peer, out NPServer server))
+                return;
+
+            NetDataReader data = new NetDataReader(packet.Data); 
+            switch ((EventType)packet.Type)
+            {
+                case EventType.PlayerJoined:
+                    {
+                        string userId = data.GetString();
+                        var newPlayer = new NPPlayer(server, userId);
+
+                        if (server.PlayersDictionary.ContainsKey(userId))
+                            break;
+
+                        server.PlayersDictionary.Add(userId, newPlayer);
+
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokePlayerJoined(new PlayerJoinedEvent(newPlayer), server);
+
+                        NetDataWriter writer = new NetDataWriter();
+                        writer.Put(userId);
+                        PacketProcessor.Send<EventPacket>(peer, new EventPacket()
+                        {
+                            Type = (byte)EventType.PlayerJoined,
+                            Data = writer.Data
+                        }, DeliveryMethod.ReliableOrdered);
+                    }
+                    break;
+                case EventType.PlayerLeft:
+                    {
+                        string userId = data.GetString();
+
+                        if (!server.PlayersDictionary.TryGetValue(userId, out NPPlayer plr))
+                            break;
+
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokePlayerLeft(new PlayerLeftEvent(plr), server);
+
+                        server.PlayersDictionary.Remove(userId);
+                    }
+                    break;
+            }
+        }
+
+        private void OnAddonOk(AddonOkPacket packet, NetPeer peer)
+        {
+            if (!Servers.TryGetValue(peer, out NPServer server))
+                return;
+
+            var addon = server.GetAddon(packet.AddonId);
+            if (addon == null)
+                return;
+
+            addon.RemoteConfig.CopyProperties((IConfig)Deserializer.Deserialize(Encoding.UTF8.GetString(packet.RemoteConfig), addon.RemoteConfig.GetType()));
+                
+            if (addon.RemoteConfig.IsEnabled)
+            {
+                try
+                {
+                    addon.OnEnable();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error while executin OnEnable event in \"{addon.AddonName}\"\n{ex}");
+                }
+            }
+            else
+            {
+                Logger.Info($"[{server.FullAddress}] Addon \"{addon.AddonName}\" ({addon.AddonVersion}) made by {addon.AddonAuthor} is disabled!");
+            }
+
+            List<CommandInfo> commands = new List<CommandInfo>();
+            commands.AddRange(addon.Commands[CommandType.GameConsole].Select(p => new CommandInfo()
+            {
+                AddonID = addon.AddonId,
+                Description = p.Value.Description,
+                CommandName = p.Value.CommandName,
+                Permission = p.Value.Permission,
+                Type = (byte)CommandType.GameConsole
+            }).ToList());
+
+            commands.AddRange(addon.Commands[CommandType.RemoteAdmin].Select(p => new CommandInfo()
+            {
+                AddonID = addon.AddonId,
+                Description = p.Value.Description,
+                CommandName = p.Value.CommandName,
+                Permission = p.Value.Permission,
+                Type = (byte)CommandType.RemoteAdmin
+            }).ToList());
+
+            PacketProcessor.Send<ReceiveCommandsPacket>(peer, new ReceiveCommandsPacket()
+            {
+                Commands = commands
+            }, DeliveryMethod.ReliableOrdered);
+        }
+
         private void OnConsoleResponse(ConsoleResponsePacket packet, NetPeer peer)
         {
             if (!Servers.TryGetValue(peer, out NPServer server))
                 return;
 
-            foreach (var addon in Addons)
+            var addon = server.GetAddon(packet.AddonId);
+            if (addon == null)
             {
-                addon.Value.OnConsoleResponse(server, packet.Command, packet.Response, packet.IsRemoteAdmin);
+                Logger.Error($"Failed receiving console response while addon with id \"{packet.AddonId}\" is not loaded on that server!");
+                return;
             }
+
+            addon.OnConsoleResponse(packet.Command, packet.Arguments, (CommandType)packet.Type, packet.Response);
         }
 
         private void OnUpdatePlayerInfo(UpdatePlayerInfoPacket packet, NetPeer peer)
@@ -232,65 +419,65 @@ namespace NetworkedPlugins.Dedicated
             if (!Servers.TryGetValue(peer, out NPServer server))
                 return;
 
-            if (!server.Players.ContainsKey(packet.UserID))
-                server.Players.Add(packet.UserID, new NPPlayer(server, packet.UserID));
+            if (!server.PlayersDictionary.ContainsKey(packet.UserID))
+                server.PlayersDictionary.Add(packet.UserID, new NPPlayer(server, packet.UserID));
 
-            if (!server.Players.TryGetValue(packet.UserID, out NPPlayer player))
+            if (!server.PlayersDictionary.TryGetValue(packet.UserID, out NPPlayer player))
                 return;
 
             NetDataReader reader = new NetDataReader(packet.Data);
 
-            switch (packet.Type)
+            switch ((PlayerDataType)packet.Type)
             {
-                case 0:
-                    player.UserName = reader.GetString();
+                case PlayerDataType.Nickname:
+                    player.Nickname = reader.GetString();
                     break;
-                case 1:
-                    player.Role = reader.GetInt();
+                case PlayerDataType.Role:
+                    player.Role = (PlayerRole)reader.GetUShort();
                     break;
-                case 2:
+                case PlayerDataType.DoNotTrack:
                     player.DoNotTrack = reader.GetBool();
                     break;
-                case 3:
+                case PlayerDataType.RemoteAdminAccess:
                     player.RemoteAdminAccess = reader.GetBool();
                     break;
-                case 4:
+                case PlayerDataType.Overwatch:
                     player.IsOverwatchEnabled = reader.GetBool();
                     break;
-                case 5:
+                case PlayerDataType.IPAddress:
                     player.IPAddress = reader.GetString();
                     break;
-                case 6:
+                case PlayerDataType.Mute:
                     player.IsMuted = reader.GetBool();
                     break;
-                case 7:
+                case PlayerDataType.IntercomMute:
                     player.IsIntercomMuted = reader.GetBool();
                     break;
-                case 8:
+                case PlayerDataType.Godmode:
                     player.IsGodModeEnabled = reader.GetBool();
                     break;
-                case 9:
+                case PlayerDataType.Health:
                     player.Health = reader.GetFloat();
                     break;
-                case 10:
+                case PlayerDataType.MaxHealth:
                     player.MaxHealth = reader.GetInt();
                     break;
-                case 11:
+                case PlayerDataType.GroupName:
                     player.GroupName = reader.GetString();
                     break;
-                case 12:
+                case PlayerDataType.RankColor:
                     player.RankColor = reader.GetString();
                     break;
-                case 13:
+                case PlayerDataType.RankName:
                     player.RankName = reader.GetString();
                     break;
-                case 14:
+                case PlayerDataType.Position:
                     player.Position = reader.Get<Position>();
                     break;
-                case 15:
+                case PlayerDataType.Rotation:
                     player.Rotation = reader.Get<Rotation>();
                     break;
-                case 16:
+                case PlayerDataType.PlayerID:
                     player.PlayerID = reader.GetInt();
                     break;
             }
@@ -298,71 +485,55 @@ namespace NetworkedPlugins.Dedicated
 
         private void OnExecuteCommand(ExecuteCommandPacket packet, NetPeer peer)
         {
+            CommandType commandType = (CommandType)packet.Type; 
             if (!Servers.TryGetValue(peer, out NPServer server))
                 return;
-            if (!server.Players.TryGetValue(packet.UserID, out NPPlayer player))
+
+            if (!server.PlayersDictionary.TryGetValue(packet.UserID, out NPPlayer player))
             {
-                Logger.Error($"Player {packet.UserID} tried executing command {packet.CommandName.ToUpper()} but its offline.");
+                Logger.Error($"Player \"{packet.UserID}\" tried executing command \"{packet.CommandName.ToUpper()}\" but its offline.");
                 return;
             }
-            ExecuteCommand(player, packet.AddonID, packet.CommandName, packet.Arguments.ToList());
-        }
 
-        private void OnReceivePlayersData(ReceivePlayersDataPacket packet, NetPeer peer)
-        {
-            if (!Servers.TryGetValue(peer, out NPServer server))
-                return;
-
-            List<string> onlinePlayers = new List<string>();
-            foreach (var plr in packet.Players)
+            var addon = server.GetAddon(packet.AddonID);
+            if (addon == null)
             {
-                if (!server.Players.TryGetValue(plr.UserID, out NPPlayer player))
+                Logger.Error($"Player \"{packet.UserID}\" tried executing command \"{packet.CommandName.ToUpper()}\" but addon id is invalid!");
+                return;
+            }
+
+            if (addon.Commands[commandType].TryGetValue(packet.CommandName.ToUpper(), out ICommand cmd))
+            {
+                Logger.Info($"[{addon.AddonName}] [{commandType}] Player \"{packet.UserID}\" executed command \"{packet.CommandName.ToUpper()}\" with arguments \"{string.Join(" ", packet.Arguments)}\".");
+                try
                 {
-                    server.Players.Add(plr.UserID, new NPPlayer(server, plr.UserID));
+                    cmd.Invoke(player, packet.Arguments);
                 }
-
-                onlinePlayers.Add(plr.UserID);
+                catch(Exception ex)
+                {
+                    Logger.Error($"[{addon.AddonName}] Player \"{packet.UserID}\" failed to execute command \"{packet.CommandName.ToUpper()}\",\n{ex}");
+                }
             }
-
-            foreach (var offlinePlayer in server.Players.Where(p => !onlinePlayers.Contains(p.Key)).Select(p => p.Key))
+            else
             {
-                server.Players.Remove(offlinePlayer);
+                Logger.Error($"[{addon.AddonName}] Player \"{packet.UserID}\" tried executing command \"{packet.CommandName.ToUpper()}\" but command not exists in targeted addon!");
             }
+
         }
 
-        private void OnReceiveAddonData(ReceiveAddonDataPacket packet, NetPeer peer)
-        {
-            if (!Servers.TryGetValue(peer, out NPServer server))
-                return;
-            NetDataReader reader = new NetDataReader(packet.Data);
-            foreach (var addon in Addons.Where(pp => pp.Key == packet.AddonID))
-            {
-                addon.Value.OnMessageReceived(server, reader);
-            }
-        }
-
-        private void OnReceiveAddons(ReceiveAddonsPacket packet, NetPeer peer)
+        private void OnReceiveAddonData(AddonDataPacket packet, NetPeer peer)
         {
             if (!Servers.TryGetValue(peer, out NPServer server))
                 return;
 
-            string adds = string.Empty;
-            List<CommandInfoPacket> cmds = new List<CommandInfoPacket>();
-            List<string> addonsId = new List<string>();
-            foreach (var i in packet.AddonIds.Where(p => Addons.ContainsKey(p)).Select(s => Addons[s]))
+            var addon = server.GetAddon(packet.AddonId);
+            if (addon == null)
             {
-                Servers[peer].Addons.Add(i);
-                adds += Environment.NewLine + $"{i.AddonName} - {i.AddonVersion}v made by {i.AddonAuthor}";
-                i.OnReady(Servers[peer]);
-                addonsId.Add(i.AddonId);
+                Logger.Error($"Failed receiving data while addon with id \"{packet.AddonId}\" is not loaded on that server!");
+                return;
             }
 
-            foreach (var addon in Addons)
-                cmds.AddRange(GetCommands(addon.Value.AddonId));
-
-            Logger.Info($"Received addons from server {server.FullAddress}, {adds}");
-            PacketProcessor.Send<ReceiveCommandsPacket>(peer, new ReceiveCommandsPacket() { Commands = cmds }, DeliveryMethod.ReliableOrdered);
-            PacketProcessor.Send<ReceiveAddonsPacket>(peer, new ReceiveAddonsPacket() { AddonIds = addonsId.ToArray() }, DeliveryMethod.ReliableOrdered);
+            addon.OnMessageReceived(new NetDataReader(packet.Data));
         }
 
         private async Task RefreshPolls()

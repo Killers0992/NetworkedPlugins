@@ -1,15 +1,15 @@
 namespace NetworkedPlugins.API
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
     using LiteNetLib;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Models;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
     using YamlDotNet.Serialization;
     using YamlDotNet.Serialization.NamingConventions;
+    using NetworkedPlugins.API.Extensions;
+    using System.Reflection;
 
     /// <summary>
     /// Network Manager.
@@ -54,104 +54,72 @@ namespace NetworkedPlugins.API
         public NetManager NetworkListener { get; set; }
 
         /// <summary>
-        /// Gets or sets dictionary of all loaded addons.
+        /// Gets or sets dictionary of all loaded client addons.
         /// </summary>
-        public Dictionary<string, IAddon<IConfig>> Addons { get; set; } = new Dictionary<string, IAddon<IConfig>>();
+        public Dictionary<string, IAddonClient<IConfig>> ClientAddons { get; } = new Dictionary<string, IAddonClient<IConfig>>();
 
+        /// <summary>
+        /// Gets or sets dictionary of all loaded dedicated addons handlers.
+        /// </summary>
+        public Dictionary<string, IAddonHandler<IConfig>> DedicatedAddonHandlers { get; } = new Dictionary<string, IAddonHandler<IConfig>>();
+        
         /// <summary>
         /// Gets or sets dictionary of all online servers.
         /// </summary>
-        public Dictionary<NetPeer, NPServer> Servers { get; set; } = new Dictionary<NetPeer, NPServer>();
+        public Dictionary<NetPeer, NPServer> Servers { get; } = new Dictionary<NetPeer, NPServer>();
 
-        private Dictionary<string, Dictionary<string, ICommand>> Commands { get; set; } = new Dictionary<string, Dictionary<string, ICommand>>();
+        public Dictionary<Assembly, string> AddonAssemblies { get; } = new Dictionary<Assembly, string>();
 
         /// <summary>
         /// Register command from addon.
         /// </summary>
         /// <param name="addon">Addon.</param>
         /// <param name="command">Command interface.</param>
-        public void RegisterCommand(IAddon<IConfig> addon, ICommand command)
+        public void RegisterCommand(IAddonDedicated<IConfig, IConfig> addon, ICommand command)
         {
-            if (!Commands.ContainsKey(addon.AddonId))
-                Commands.Add(addon.AddonId, new Dictionary<string, ICommand>());
-
-            if (Commands[addon.AddonId].ContainsKey(command.CommandName.ToUpper()))
+            if (addon.Commands[command.Type].ContainsKey(command.CommandName.ToUpper()))
             {
-                Logger.Info($"Command {command.CommandName.ToUpper()} is already registered in addon {addon.AddonName}!");
+                Logger.Info($"[{command.Type}] Command \"{command.CommandName.ToUpper()}\" is already registered in addon \"{addon.AddonName}\"!");
                 return;
             }
 
-            Commands[addon.AddonId].Add(command.CommandName.ToUpper(), command);
-            Logger.Info($"Command {command.CommandName.ToUpper()} registered in addon {addon.AddonName}");
-        }
-
-        /// <summary>
-        /// Execute addon command.
-        /// </summary>
-        /// <param name="plr">Executing player.</param>
-        /// <param name="addonId">Addon ID.</param>
-        /// <param name="commandName">Command name.</param>
-        /// <param name="arguments">Command arguments.</param>
-        public void ExecuteCommand(PlayerFuncs plr, string addonId, string commandName, List<string> arguments)
-        {
-            if (Commands[addonId].TryGetValue(commandName.ToUpper(), out ICommand cmd))
-            {
-                Logger.Info($"{plr.UserName} ({plr.UserID}) executed command \"{commandName.ToUpper()}\" with arguments \"{string.Join(" ", arguments)}\".");
-                try
-                {
-                    cmd.Invoke(plr, arguments);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Failed executing command {commandName}, {ex}");
-                }
-            }
+            addon.Commands[command.Type].Add(command.CommandName.ToUpper(), command);
+            Logger.Info($"[{command.Type}] Command \"{command.CommandName.ToUpper()}\" registered in addon \"{addon.AddonName}\".");
         }
 
         /// <summary>
         /// Load addon config.
         /// </summary>
-        /// <param name="addonId">Addon ID.</param>
-        public void LoadAddonConfig(string addonId)
+        /// <param name="addon">Addon.</param>
+        public void LoadAddonConfig(IAddonClient<IConfig> addon)
         {
-            if (Addons.TryGetValue(addonId, out IAddon<IConfig> npdi))
-            {
-                if (!Directory.Exists(npdi.AddonPath))
-                    Directory.CreateDirectory(npdi.AddonPath);
+            if (!Directory.Exists(addon.AddonPath))
+                Directory.CreateDirectory(addon.AddonPath);
 
-                if (!File.Exists(Path.Combine(npdi.AddonPath, "config.yml")))
-                    File.WriteAllText(Path.Combine(npdi.AddonPath, "config.yml"), Serializer.Serialize(npdi.Config));
+            if (!File.Exists(Path.Combine(addon.AddonPath, "config.yml")))
+                File.WriteAllText(Path.Combine(addon.AddonPath, "config.yml"), Serializer.Serialize(addon.Config));
 
-                var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(npdi.AddonPath, "config.yml")), npdi.Config.GetType());
-                File.WriteAllText(Path.Combine(npdi.AddonPath, "config.yml"), Serializer.Serialize(cfg));
-                npdi.Config.CopyProperties(cfg);
-            }
+            var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(addon.AddonPath, "config.yml")), addon.Config.GetType());
+            File.WriteAllText(Path.Combine(addon.AddonPath, "config.yml"), Serializer.Serialize(cfg));
+            addon.Config.CopyProperties(cfg);
         }
 
-        /// <summary>
-        /// Get all loaded command from addon.
-        /// </summary>
-        /// <param name="addonId">Addon ID.</param>
-        /// <returns>List of CommandInfoPacket.</returns>
-        public List<CommandInfoPacket> GetCommands(string addonId)
-        {
-            List<CommandInfoPacket> cmds = new List<CommandInfoPacket>();
-            if (Commands.TryGetValue(addonId, out Dictionary<string, ICommand> outCmds))
-            {
-                foreach (var cmd in outCmds)
-                {
-                    cmds.Add(new CommandInfoPacket()
-                    {
-                        AddonID = addonId,
-                        CommandName = cmd.Key,
-                        Description = cmd.Value.Description,
-                        Permission = cmd.Value.Permission,
-                        IsRaCommand = cmd.Value.IsRaCommand,
-                    });
-                }
-            }
 
-            return cmds;
+        /// <summary>
+        /// Load addon config.
+        /// </summary>
+        /// <param name="addon">Addon.</param>
+        public void LoadAddonConfig(IAddonDedicated<IConfig, IConfig> addon)
+        {
+            if (!Directory.Exists(addon.AddonPath))
+                Directory.CreateDirectory(addon.AddonPath);
+
+            if (!File.Exists(Path.Combine(addon.AddonPath, "config.yml")))
+                File.WriteAllText(Path.Combine(addon.AddonPath, "config.yml"), Serializer.Serialize(addon.Config));
+
+            var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(addon.AddonPath, "config.yml")), addon.Config.GetType());
+            File.WriteAllText(Path.Combine(addon.AddonPath, "config.yml"), Serializer.Serialize(cfg));
+            addon.Config.CopyProperties(cfg);
         }
     }
 }

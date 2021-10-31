@@ -4,18 +4,49 @@ namespace NetworkedPlugins.API
     using System.Collections.Generic;
     using System.Linq;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Models;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
     using LiteNetLib;
     using LiteNetLib.Utils;
+    using NetworkedPlugins.API.Enums;
+    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Models;
+    using NetworkedPlugins.API.Events.Player;
+    using static NetworkedPlugins.API.Events.NPEventHandler;
+    using NetworkedPlugins.API.Extensions;
 
     /// <summary>
     /// Network Dedicated Addon.
     /// </summary>
     /// <typeparam name="TConfig">The config type.</typeparam>
-    public abstract class NPAddonDedicated<TConfig> : IAddon<TConfig>
+    public abstract class NPAddonDedicated<TConfig, TRemoteConfig> : IAddonDedicated<TConfig, TRemoteConfig>
         where TConfig : IConfig, new()
+        where TRemoteConfig : IConfig, new ()
     {
+        /// <inheritdoc/>
+        public NPServer Server { get; }
+
+        public IEnumerable<NPServer> GetServers()
+        {
+            return NPManager.Singleton.Servers.Values.Where(p => p.ServerConfig.LinkToken == Server.ServerConfig.LinkToken);
+        }
+
+        /// <inheritdoc/>
+        public IAddonHandler<IConfig> Handler { get; }
+
+        /// <inheritdoc/>
+        public virtual NPPermissions Permissions { get; } = new NPPermissions()
+        {
+            ReceivePermissions = new List<AddonSendPermissionTypes>() { AddonSendPermissionTypes.None },
+            SendPermissions = new List<AddonReceivePermissionTypes>() { AddonReceivePermissionTypes.None },
+        };
+
+        /// <inheritdoc/>
+        public Dictionary<CommandType, Dictionary<string, ICommand>> Commands { get; } = new Dictionary<CommandType, Dictionary<string, ICommand>>()
+        {
+            { CommandType.GameConsole, new Dictionary<string, ICommand>() },
+            { CommandType.RemoteAdmin, new Dictionary<string, ICommand>() },
+        };
+
         /// <inheritdoc/>
         public NPManager Manager { get; }
 
@@ -41,83 +72,26 @@ namespace NetworkedPlugins.API
         public string AddonPath { get; }
 
         /// <inheritdoc/>
+        public string ServerPath { get; }
+
+        /// <inheritdoc/>
         public TConfig Config { get; } = new TConfig();
 
-        /// <summary>
-        /// Send data to client.
-        /// </summary>
-        /// <param name="serverPort">Server port.</param>
-        /// <param name="writer">Data writer.</param>
-        public void SendData(ushort serverPort, NetDataWriter writer)
-        {
-            foreach (var obj in Manager.Servers)
-            {
-                if (obj.Value.ServerPort == serverPort)
-                {
-                    Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(obj.Key, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                }
-            }
-        }
+        /// <inheritdoc/>
+        public TRemoteConfig RemoteConfig { get; } = new TRemoteConfig();
 
         /// <summary>
         /// Send data to client.
         /// </summary>
-        /// <param name="server">Server.</param>
         /// <param name="writer">Data writer.</param>
-        public void SendData(NPServer server, NetDataWriter writer)
+        public void SendData(NetDataWriter writer)
         {
-            foreach (var obj in Manager.Servers)
-            {
-                if (obj.Value.FullAddress == server.FullAddress)
-                {
-                    Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(obj.Key, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Send data to client.
-        /// </summary>
-        /// <param name="serverAddress">Server address.</param>
-        /// <param name="writer">Data writer.</param>
-        public void SendData(string serverAddress, NetDataWriter writer)
-        {
-            foreach (var obj in Manager.Servers)
-            {
-                if (obj.Key.EndPoint.Address.ToString() == serverAddress)
-                {
-                    Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(obj.Key, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Send data to client.
-        /// </summary>
-        /// <param name="serverAddress">Server address.</param>
-        /// <param name="serverPort">Server port.</param>
-        /// <param name="writer">Data writer.</param>
-        public void SendData(string serverAddress, ushort serverPort, NetDataWriter writer)
-        {
-            foreach (var obj in Manager.Servers)
-            {
-                if (obj.Key.EndPoint.Address.ToString() == serverAddress)
-                {
-                    if (obj.Value.ServerPort == serverPort)
-                    {
-                        Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(obj.Key, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets all online servers.
-        /// </summary>
-        /// <returns>List of NPServer.</returns>
-        public List<NPServer> GetServers()
-        {
-            return Manager.Servers.Values.ToList();
+            Manager.PacketProcessor.Send<AddonDataPacket>(Server.Peer,
+                new AddonDataPacket() 
+                { 
+                    AddonId = AddonId, 
+                    Data = writer.Data 
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -130,28 +104,21 @@ namespace NetworkedPlugins.API
             return Manager.Servers.Any(p => p.Value.ServerPort == port);
         }
 
-        /// <summary>
-        /// Send data to all servers.
-        /// </summary>
-        /// <param name="writer">Data writer.</param>
-        public void SendData(NetDataWriter writer)
-        {
-            Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(Manager.NetworkListener, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-        }
-
         /// <inheritdoc/>
-        public virtual void OnMessageReceived(NPServer server, NetDataReader reader)
+        public virtual void OnMessageReceived(NetDataReader reader)
         {
         }
 
         /// <inheritdoc/>
         public virtual void OnEnable()
         {
+            Logger.Info($"[{Server.FullAddress}] Enabled addon \"{AddonName}\" ({AddonVersion}) made by {AddonAuthor}.");
         }
 
         /// <inheritdoc/>
-        public virtual void OnReady(NPServer server)
+        public virtual void OnDisable()
         {
+            Logger.Info($"[{Server.FullAddress}] Disabled addon \"{AddonName}\" ({AddonVersion}) made by {AddonAuthor}.");
         }
 
         /// <inheritdoc/>
@@ -160,7 +127,7 @@ namespace NetworkedPlugins.API
         }
 
         /// <inheritdoc/>
-        public virtual void OnConsoleResponse(NPServer server, string command, string response, bool isRa)
+        public virtual void OnConsoleResponse(string command, string[] arguments, CommandType type, string response)
         {
         }
 
@@ -169,6 +136,12 @@ namespace NetworkedPlugins.API
         /// </summary>
         /// <param name="other"> Config.</param>
         /// <returns>Int.</returns>
-        public int CompareTo(IAddon<IConfig> other) => 0;
+        public int CompareTo(IAddonDedicated<IConfig, IConfig> other) => 0;
+
+        public CustomEventHandler<PlayerJoinedEvent> PlayerJoined { get; set; }
+        public void InvokePlayerJoined(PlayerJoinedEvent ev) => PlayerJoined.InvokeSafely(ev);
+
+        public CustomEventHandler<PlayerLeftEvent> PlayerLeft { get; set; }
+        public void InvokePlayerLeft(PlayerLeftEvent ev) => PlayerLeft.InvokeSafely(ev);
     }
 }

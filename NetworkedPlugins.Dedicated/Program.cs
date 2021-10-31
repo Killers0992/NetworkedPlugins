@@ -30,9 +30,12 @@ namespace NetworkedPlugins.Dedicated
             {
                 var line = Console.ReadLine();
                 var proc = line.Split(' ');
-                foreach (var h in host.Addons)
+                foreach (var h in host.DedicatedAddonHandlers)
                 {
-                    h.Value.OnConsoleCommand(proc[0], proc.Skip(1).ToList());
+                    foreach(var addon in h.Value.AddonInstances)
+                    {
+                        addon.Value.OnConsoleCommand(proc[0], proc.Skip(1).ToList());
+                    }
                 }
             }
         }

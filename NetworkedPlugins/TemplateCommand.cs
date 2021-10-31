@@ -4,10 +4,11 @@ namespace NetworkedPlugins
     using CommandSystem;
     using Exiled.API.Features;
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
     using Exiled.Permissions.Extensions;
     using LiteNetLib;
     using System.Linq;
+    using NetworkedPlugins.API.Enums;
 
     /// <summary>
     /// Template command.
@@ -48,11 +49,12 @@ namespace NetworkedPlugins
         /// Gets or sets assigned addon id.
         /// </summary>
         public string AssignedAddonID { get; set; }
+        
+        public byte Type { get; set; }
 
         /// <inheritdoc/>
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
-
             Player p = Player.Get(sender);
             if (p == null)
             {
@@ -74,7 +76,8 @@ namespace NetworkedPlugins
                 new ExecuteCommandPacket() 
                 { 
                     UserID = p.UserId, 
-                    AddonID = AssignedAddonID, 
+                    AddonID = AssignedAddonID,
+                    Type = Type, 
                     CommandName = this.Command, 
                     Arguments = arguments.ToArray() 
                 }, DeliveryMethod.ReliableOrdered);

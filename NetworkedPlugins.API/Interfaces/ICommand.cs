@@ -1,5 +1,7 @@
 namespace NetworkedPlugins.API.Interfaces
 {
+    using NetworkedPlugins.API.Enums;
+    using NetworkedPlugins.API.Structs;
     using System.Collections.Generic;
 
     /// <summary>
@@ -23,15 +25,15 @@ namespace NetworkedPlugins.API.Interfaces
         string Permission { get; }
 
         /// <summary>
-        /// Gets a value indicating whether gets if command is on remoteadmin.
+        /// Gets a value indicating command type.
         /// </summary>
-        bool IsRaCommand { get; }
+        CommandType Type { get; }
 
         /// <summary>
         /// Invoke command.
         /// </summary>
         /// <param name="player">Player functions.</param>
         /// <param name="arguments">Command arguments.</param>
-        void Invoke(PlayerFuncs player, List<string> arguments);
+        void Invoke(NPPlayer player, string[] arguments);
     }
 }

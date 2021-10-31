@@ -1,13 +1,13 @@
 namespace NetworkedPlugins
 {
     using Exiled.API.Features;
+    using NetworkedPlugins.API;
     using System;
 
     /// <inheritdoc/>
     public class MainClass : Plugin<PluginConfig>
     {
         private NPClient client;
-        private NPHost host;
 
         /// <summary>
         /// Gets or Sets singleton of main plugin class.
@@ -24,7 +24,7 @@ namespace NetworkedPlugins
         public override string Author { get; } = "Killers0992";
 
         /// <inheritdoc/>
-        public override Version Version { get; } = new Version(1, 0, 2);
+        public override Version Version => NPVersion.Version;
 
         /// <inheritdoc/>
         public override Version RequiredExiledVersion { get; } = new Version(3, 0, 0);
@@ -33,10 +33,7 @@ namespace NetworkedPlugins
         public override void OnEnabled()
         {
             Singleton = this;
-            if (Config.IsHost)
-                host = new NPHost(this);
-            else
-                client = new NPClient(this);
+            client = new NPClient(this);
             base.OnEnabled();
         }
 
@@ -50,11 +47,6 @@ namespace NetworkedPlugins
                 client = null;
             }
 
-            if (host != null)
-            {
-                host.Unload();
-                host = null;
-            }
             base.OnDisabled();
         }
     }

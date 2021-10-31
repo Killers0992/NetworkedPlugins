@@ -1,5 +1,6 @@
 namespace NetworkedPlugins.Dedicated
 {
+    using System.Collections.Generic;
     using System.ComponentModel;
 
     /// <summary>
@@ -24,5 +25,7 @@ namespace NetworkedPlugins.Dedicated
         /// </summary>
         [Description("Listen on port or connect to.")]
         public ushort HostPort { get; set; } = 7777;
+
+        public List<string> DefaultAddons { get; set; } = new List<string>();
     }
 }

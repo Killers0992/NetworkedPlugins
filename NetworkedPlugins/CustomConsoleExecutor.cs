@@ -1,7 +1,8 @@
 namespace NetworkedPlugins
 {
     using LiteNetLib;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Enums;
+    using NetworkedPlugins.API.Structs;
     using UnityEngine;
 
     /// <summary>
@@ -9,6 +10,8 @@ namespace NetworkedPlugins
     /// </summary>
     public class CustomConsoleExecutor : CommandSender
     {
+        private readonly string addonid;
+        private readonly string[] args;
         private readonly string command;
         private readonly NPClient client;
 
@@ -17,10 +20,12 @@ namespace NetworkedPlugins
         /// </summary>
         /// <param name="client">Network Client.</param>
         /// <param name="cmd">Command.</param>
-        public CustomConsoleExecutor(NPClient client, string cmd)
+        public CustomConsoleExecutor(NPClient client, string cmd, string[] args, string addon)
         {
             this.client = client;
             this.command = cmd;
+            this.addonid = addon;
+            this.args = args;
         }
 
         /// <summary>
@@ -88,7 +93,14 @@ namespace NetworkedPlugins
         public override void RaReply(string text, bool success, bool logToConsole, string overrideDisplay)
         {
             GameCore.Console.AddLog("[RA Reply] " + text, success ? Color.green : Color.red, false);
-            this.client.PacketProcessor.Send<ConsoleResponsePacket>(this.client.NetworkListener, new ConsoleResponsePacket() { Command = command, IsRemoteAdmin = true, Response = text }, DeliveryMethod.ReliableOrdered);
+            this.client.PacketProcessor.Send<ConsoleResponsePacket>(this.client.NetworkListener, new ConsoleResponsePacket()
+            {
+                AddonId = addonid,
+                Command = command,
+                Type = (byte)CommandType.RemoteAdmin,
+                Arguments = args,
+                Response = text
+            }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -98,7 +110,14 @@ namespace NetworkedPlugins
         public override void Print(string text)
         {
             GameCore.Console.AddLog(text, Color.green, false);
-            this.client.PacketProcessor.Send<ConsoleResponsePacket>(this.client.NetworkListener, new ConsoleResponsePacket() { Command = command, IsRemoteAdmin = false, Response = text }, DeliveryMethod.ReliableOrdered);
+            this.client.PacketProcessor.Send<ConsoleResponsePacket>(this.client.NetworkListener, new ConsoleResponsePacket() 
+            {
+                AddonId = addonid,
+                Command = command,
+                Type = (byte)CommandType.GameConsole,
+                Arguments = args,
+                Response = text
+            }, DeliveryMethod.ReliableOrdered);
         }
     }
 }

@@ -8,14 +8,12 @@ namespace NetworkedPlugins
     using System.Net.Sockets;
     using System.Reflection;
 
-    using CommandSystem;
-
     using Exiled.API.Features;
     using Exiled.Events.EventArgs;
     using NetworkedPlugins.API;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Models;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Extensions;
     using LiteNetLib;
     using LiteNetLib.Utils;
     using MEC;
@@ -24,6 +22,10 @@ namespace NetworkedPlugins
     using static Broadcast;
     using RemoteAdmin;
     using NetworkedPlugins.API.Enums;
+    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Packets.ServerPackets;
+    using System.Text;
+    using NetworkedPlugins.API.Packets.ClientPackets;
 
     /// <summary>
     /// Network client.
@@ -32,12 +34,14 @@ namespace NetworkedPlugins
     {
         private MainClass plugin;
 
-        private bool canSendData = false;
         private CoroutineHandle refreshPolls;
-        private CoroutineHandle sendPlayerInfo;
-        private CoroutineHandle dataChecker;
-        private Dictionary<string, NPPlayer> players = new Dictionary<string, NPPlayer>();
+        private Dictionary<string, NetworkedPlayer> Players = new Dictionary<string, NetworkedPlayer>();
         private NetDataWriter defaultdata;
+        private string tokenPath;
+        private string remoteConfigsPath;
+        private bool isDownloading;
+        private DateTime nextUpdate = DateTime.Now;
+        private Dictionary<string, AddonInfo> InstalledAddons { get; } = new Dictionary<string, AddonInfo>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NPClient"/> class.
@@ -47,16 +51,16 @@ namespace NetworkedPlugins
         {
             NPManager.Singleton = this;
             this.plugin = plugin;
-            defaultdata = new NetDataWriter();
-            defaultdata.Put(plugin.Config.HostConnectionKey);
-            defaultdata.Put(Server.Port);
-            defaultdata.Put(CustomNetworkManager.slots);
             Logger = new PluginLogger();
             string pluginDir = Path.Combine(Paths.Plugins, "NetworkedPlugins");
+            tokenPath = Path.Combine(pluginDir, $"NPToken_{Server.Port}.token");
             if (!Directory.Exists(pluginDir))
                 Directory.CreateDirectory(pluginDir);
             if (!Directory.Exists(Path.Combine(pluginDir, "addons-" + Server.Port)))
                 Directory.CreateDirectory(Path.Combine(pluginDir, "addons-" + Server.Port));
+            remoteConfigsPath = Path.Combine(pluginDir, "remoteconfigs-" + Server.Port);
+            if (!Directory.Exists(remoteConfigsPath))
+                Directory.CreateDirectory(remoteConfigsPath);
             string[] addonsFiles = Directory.GetFiles(Path.Combine(pluginDir, "addons-" + Server.Port), "*.dll");
             Log.Info($"Loading {addonsFiles.Length} addons.");
             foreach (var file in addonsFiles)
@@ -67,23 +71,21 @@ namespace NetworkedPlugins
                     foreach (Type t in a.GetTypes().Where(type => !type.IsAbstract && !type.IsInterface))
                     {
                         if (!t.BaseType.IsGenericType || t.BaseType.GetGenericTypeDefinition() != typeof(NPAddonClient<>))
-                        {
                             continue;
-                        }
 
-                        IAddon<IConfig> addon = null;
+                        IAddonClient<IConfig> addon = null;
 
                         var constructor = t.GetConstructor(Type.EmptyTypes);
                         if (constructor != null)
                         {
-                            addon = constructor.Invoke(null) as IAddon<IConfig>;
+                            addon = constructor.Invoke(null) as IAddonClient<IConfig>;
                         }
                         else
                         {
                             var value = Array.Find(t.GetProperties(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public), property => property.PropertyType == t)?.GetValue(null);
 
                             if (value != null)
-                                addon = value as IAddon<IConfig>;
+                                addon = value as IAddonClient<IConfig>;
                         }
 
                         if (addon == null)
@@ -106,13 +108,14 @@ namespace NetworkedPlugins
                         field = prop.GetBackingField();
                         field.SetValue(addon, Logger);
 
-                        if (Addons.ContainsKey(addon.AddonId))
+                        if (ClientAddons.ContainsKey(addon.AddonId))
                         {
                             Logger.Error($"Addon {addon.AddonName} already already registered with id {addon.AddonId}.");
                             break;
                         }
-                        Addons.Add(addon.AddonId, addon);
-                        LoadAddonConfig(addon.AddonId);
+
+                        ClientAddons.Add(addon.AddonId, addon);
+                        LoadAddonConfig(addon);
                         if (!addon.Config.IsEnabled)
                             return;
 
@@ -126,12 +129,39 @@ namespace NetworkedPlugins
                     Logger.Error($"Failed loading addon {Path.GetFileNameWithoutExtension(file)}. {ex.ToString()}");
                 }
             }
-
             Logger.Info($"Starting CLIENT network...");
-            Exiled.Events.Handlers.Player.Destroying += Player_Destroying;
             Exiled.Events.Handlers.Player.Verified += Player_Verified;
+            Exiled.Events.Handlers.Player.Destroying += Player_Destroying;
             Exiled.Events.Handlers.Server.WaitingForPlayers += Server_WaitingForPlayers;
-            StartNetworkClient();
+        }
+
+        public void CreateDefaultConnectionData()
+        {
+            defaultdata = new NetDataWriter();
+            defaultdata.Put(plugin.Config.HostConnectionKey);
+            defaultdata.Put(plugin.Version.ToString(3));
+            defaultdata.Put(Server.Port);
+            defaultdata.Put(CustomNetworkManager.slots);
+            defaultdata.PutArray(ClientAddons.Select(p => p.Key).ToArray());
+            if (File.Exists(tokenPath))
+            {
+                var bytes = File.ReadAllBytes(tokenPath);
+                defaultdata.PutBytesWithLength(bytes, 0, bytes.Length);
+            }
+            else
+            {
+                var bytes = Encoding.UTF8.GetBytes(string.Empty);
+                defaultdata.PutBytesWithLength(bytes, 0, bytes.Length);
+            }
+        }
+
+        private void Player_Destroying(DestroyingEventArgs ev)
+        {
+            if (Players.TryGetValue(ev.Player.UserId, out NetworkedPlayer plr))
+            {
+                UnityEngine.Object.Destroy(plr);
+                Players.Remove(ev.Player.UserId);
+            }
         }
 
         /// <summary>
@@ -142,12 +172,6 @@ namespace NetworkedPlugins
             if (refreshPolls != null)
                 Timing.KillCoroutines(refreshPolls);
 
-            if (sendPlayerInfo != null)
-                Timing.KillCoroutines(sendPlayerInfo);
-
-            if (dataChecker != null)
-                Timing.KillCoroutines(dataChecker);
-
             Exiled.Events.Handlers.Player.Destroying -= Player_Destroying;
             Exiled.Events.Handlers.Player.Verified -= Player_Verified;
             Exiled.Events.Handlers.Server.WaitingForPlayers -= Server_WaitingForPlayers;
@@ -157,19 +181,105 @@ namespace NetworkedPlugins
         public void OnPeerConnected(NetPeer peer)
         {
             Logger.Info("Client connected to host.");
-            List<string> addon = new List<string>();
-            foreach (var addon2 in Addons)
-                addon.Add(addon2.Key);
-            PacketProcessor.Send<ReceiveAddonsPacket>(peer, new ReceiveAddonsPacket() { AddonIds = addon.ToArray() }, DeliveryMethod.ReliableOrdered);
-            Logger.Info("Addons info sended to host, waiting to response...");
-            dataChecker = Timing.RunCoroutine(DataCheckers());
+            foreach (var player in Players.Values)
+                player.Reset();
+        }
+
+        public string GetChangelogs(string ver)
+        {
+            using (var web = new WebClient())
+            {
+                try
+                {
+                    var changelogs = web.DownloadString($"https://raw.githubusercontent.com/Killers0992/NetworkedPlugins/{ver}/NetworkedPlugins.API/changelogs.txt");
+                    return changelogs.Contains("404") ? "No Changelogs" : changelogs;
+                }
+                catch (Exception) { return "";  }
+            }
+        }
+
+        public void DownloadNewVersion(string ver)
+        {
+            if (nextUpdate > DateTime.Now)
+                return;
+
+            isDownloading = true;
+            using(var web = new WebClient())
+            {
+                Logger.Info($"Downloading \"NetworkedPlugins.dll\" version \"{ver}\"...");
+                try
+                {
+                    web.DownloadFile($"https://github.com/Killers0992/NetworkedPlugins/releases/download/{ver}/NetworkedPlugins.dll", Path.Combine(Paths.Plugins, "NetworkedPlugins.dll"));
+                }
+                catch (Exception)
+                {
+                    Logger.Info($"Failed downloading \"NetworkedPlugins.dll\" version \"{ver}\", file not exists! (Next attempt in 15 seconds)");
+                    isDownloading = false;
+                    nextUpdate = DateTime.Now.AddSeconds(15);
+                    return;
+                }
+                Logger.Info($"Downloaded \"NetworkedPlugins.dll\" version \"{ver}\"...");
+                Logger.Info($"Downloading \"NetworkedPlugins.API.dll\" version \"{ver}\"...");
+                web.DownloadFile($"https://github.com/Killers0992/NetworkedPlugins/releases/download/{ver}/NetworkedPlugins.API.dll", Path.Combine(Paths.Dependencies, "NetworkedPlugins.API.dll"));
+                Logger.Info($"Downloaded \"NetworkedPlugins.API.dll\" version \"{ver}\"...");
+                Logger.Info($"Changelogs: \n{GetChangelogs(ver)}");
+                switch (plugin.Config.UpdateAction)
+                {
+                    case UpdateAction.Nothing:
+                        Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins.");
+                        break;
+                    case UpdateAction.RestartNextRound:
+                        Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, server will be restarted next round.");
+                        ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
+                        break;
+                    case UpdateAction.RestartNow:
+                        Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, restarting server.");
+                        ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
+                        PlayerStats.StaticChangeLevel(true);
+                        break;
+                    case UpdateAction.RestartNowIfEmpty:
+                        if (Player.List.Count() == 0 || !Round.IsStarted)
+                        {
+                            Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, restarting server.");
+                            ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
+                            PlayerStats.StaticChangeLevel(true);
+                        }
+                        else
+                        {
+                            Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, server will be restarted next round (Server is not empty).");
+                            ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
+                        }
+                        break;
+                }
+            }
+            isDownloading = false;
         }
 
         /// <inheritdoc/>
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            Logger.Info($"Client disconnected from host. (Info: {disconnectInfo.Reason.ToString()})");
-            Timing.RunCoroutine(Reconnect());
+            if (disconnectInfo.AdditionalData.TryGetByte(out byte rejectType))
+            {
+                RejectType type = (RejectType)rejectType;
+                if (disconnectInfo.AdditionalData.TryGetString(out string reason))
+                {
+                    switch (type)
+                    {
+                        case RejectType.InvalidToken:
+                            Logger.Info($"[Connection rejected] Server sended token which not exists on host! (Contact owner of host)");
+                            break;
+                        case RejectType.OutdatedVersion:
+                            if (disconnectInfo.AdditionalData.TryGetString(out string newerVersion) && !isDownloading)
+                            {
+                                Logger.Info($"[Connection rejected] Server uses older version of NetworkedPlugins (Current: {NPVersion.Version.ToString(3)}, Newer: {newerVersion})");
+                                DownloadNewVersion(newerVersion);
+                            }
+                            break;
+                    }
+                }
+            }
+            else
+                Logger.Info($"[Disconnected] Reason \"{disconnectInfo.Reason}\".");
 
             foreach(var commandTypes in Commands)
             {
@@ -190,9 +300,10 @@ namespace NetworkedPlugins
 
             Commands[CommandType.GameConsole].Clear();
             Commands[CommandType.RemoteAdmin].Clear();
-            canSendData = false;
-            if (dataChecker != null)
-                Timing.KillCoroutines(dataChecker);
+
+            foreach(var player in Players.Values)
+                player.NetworkData.IsConnected = false;
+            Timing.RunCoroutine(Reconnect());
         }
 
         /// <inheritdoc/>
@@ -236,288 +347,248 @@ namespace NetworkedPlugins
 
         private void Server_WaitingForPlayers()
         {
-            UpdatePlayers();
+            if (NetworkListener == null)
+                StartNetworkClient();
         }
 
         private void Player_Verified(VerifiedEventArgs ev)
         {
-            if (!players.ContainsKey(ev.Player.UserId))
-                players.Add(ev.Player.UserId, new NPPlayer(null, ev.Player.UserId));
-        }
-
-        private void Player_Destroying(DestroyingEventArgs ev)
-        {
-            if (players.ContainsKey(ev.Player.UserId))
-                players.Remove(ev.Player.UserId);
-        }
-
-        private IEnumerator<float> DataCheckers()
-        {
-            players = new Dictionary<string, NPPlayer>();
-            foreach (var plr in Player.List)
-                players.Add(plr.UserId, new NPPlayer(null, plr.UserId));
-
-            UpdatePlayers();
-            while (true)
-            {
-                yield return Timing.WaitForSeconds(0.1f);
-
-                try
-                {
-                    foreach (var plr in players)
-                    {
-                        if (!canSendData)
-                            continue;
-                        var realPlayer = Player.Get(plr.Key);
-                        var player = plr.Value;
-                        if (realPlayer != null)
-                        {
-                            NetDataWriter writer = new NetDataWriter();
-                            if (player.UserName != realPlayer.Nickname)
-                            {
-                                player.UserName = realPlayer.Nickname;
-                                writer = new NetDataWriter();
-                                writer.Put(player.UserName);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)0, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.Role != (int)realPlayer.Role)
-                            {
-                                player.Role = (int)realPlayer.Role;
-                                writer = new NetDataWriter();
-                                writer.Put(player.Role);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)1, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.DoNotTrack != realPlayer.DoNotTrack)
-                            {
-                                player.DoNotTrack = realPlayer.DoNotTrack;
-                                writer = new NetDataWriter();
-                                writer.Put(player.DoNotTrack);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)2, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.RemoteAdminAccess != realPlayer.RemoteAdminAccess)
-                            {
-                                player.RemoteAdminAccess = realPlayer.RemoteAdminAccess;
-                                writer = new NetDataWriter();
-                                writer.Put(player.RemoteAdminAccess);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)3, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.IsOverwatchEnabled != realPlayer.IsOverwatchEnabled)
-                            {
-                                player.IsOverwatchEnabled = realPlayer.IsOverwatchEnabled;
-                                writer = new NetDataWriter();
-                                writer.Put(player.IsOverwatchEnabled);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)4, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.IPAddress != realPlayer.IPAddress)
-                            {
-                                player.IPAddress = realPlayer.IPAddress;
-                                writer = new NetDataWriter();
-                                writer.Put(player.IPAddress);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)5, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.IsMuted != realPlayer.IsMuted)
-                            {
-                                player.IsMuted = realPlayer.IsMuted;
-                                writer = new NetDataWriter();
-                                writer.Put(player.IsMuted);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)6, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.IsIntercomMuted != realPlayer.IsIntercomMuted)
-                            {
-                                player.IsIntercomMuted = realPlayer.IsIntercomMuted;
-                                writer = new NetDataWriter();
-                                writer.Put(player.IsIntercomMuted);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)7, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.IsGodModeEnabled != realPlayer.IsGodModeEnabled)
-                            {
-                                player.IsGodModeEnabled = realPlayer.IsGodModeEnabled;
-                                writer = new NetDataWriter();
-                                writer.Put(player.IsGodModeEnabled);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)8, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.Health != realPlayer.Health)
-                            {
-                                player.Health = realPlayer.Health;
-                                writer = new NetDataWriter();
-                                writer.Put(player.Health);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)9, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.MaxHealth != realPlayer.MaxHealth)
-                            {
-                                player.MaxHealth = realPlayer.MaxHealth;
-                                writer = new NetDataWriter();
-                                writer.Put(player.MaxHealth);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)10, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.GroupName != realPlayer.GroupName)
-                            {
-                                player.GroupName = realPlayer.GroupName;
-                                writer = new NetDataWriter();
-                                writer.Put(player.GroupName);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)11, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.RankColor != realPlayer.RankColor)
-                            {
-                                player.RankColor = realPlayer.RankColor;
-                                writer = new NetDataWriter();
-                                writer.Put(player.RankColor);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)12, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (player.RankName != realPlayer.RankName)
-                            {
-                                player.RankName = realPlayer.RankName;
-                                writer = new NetDataWriter();
-                                writer.Put(player.RankName);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)13,  Data = writer.Data, }, DeliveryMethod.ReliableOrdered);
-                            }
-
-                            if (realPlayer.SessionVariables.TryGetValue("SP", out object sendP))
-                            {
-                                if ((bool)sendP && (player.Position.X != realPlayer.Position.x || player.Position.Y != realPlayer.Position.y || player.Position.Z != realPlayer.Position.z))
-                                {
-                                    writer = new NetDataWriter();
-                                    player.Position = new Position()
-                                    {
-                                        X = realPlayer.Position.x,
-                                        Y = realPlayer.Position.y,
-                                        Z = realPlayer.Position.z,
-                                    };
-                                    writer.Put<Position>(player.Position);
-                                    PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)14, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                                }
-                            }
-
-                            if (realPlayer.SessionVariables.TryGetValue("SP", out object sendR))
-                            {
-                                if ((bool)sendR && (player.Rotation.X != realPlayer.Rotation.x || player.Rotation.Y != realPlayer.Rotation.y || player.Rotation.Z != realPlayer.Rotation.z))
-                                {
-                                    writer = new NetDataWriter();
-                                    player.Rotation = new Rotation()
-                                    {
-                                        X = realPlayer.Rotation.x,
-                                        Y = realPlayer.Rotation.y,
-                                        Z = realPlayer.Rotation.z,
-                                    };
-                                    writer.Put<Rotation>(player.Rotation);
-                                    PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)15, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
-                                }
-                            }
-
-                            if (player.PlayerID != realPlayer.Id)
-                            {
-                                player.PlayerID = realPlayer.Id;
-                                writer = new NetDataWriter();
-                                writer.Put(player.PlayerID);
-                                PacketProcessor.Send<UpdatePlayerInfoPacket>(NetworkListener, new UpdatePlayerInfoPacket() { UserID = player.UserID, Type = (byte)16, Data = writer.Data, }, DeliveryMethod.ReliableOrdered);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex.ToString());
-                }
-            }
+            Players.Add(ev.Player.UserId, ev.Player.GameObject.AddComponent<NetworkedPlayer>());
         }
 
         private void StartNetworkClient()
         {
-            PacketProcessor.RegisterNestedType<CommandInfoPacket>();
-            PacketProcessor.RegisterNestedType<PlayerInfoPacket>();
+            PacketProcessor.RegisterNestedType<CommandInfo>();
+            PacketProcessor.RegisterNestedType<PlayerInfo>();
             PacketProcessor.RegisterNestedType<Position>();
             PacketProcessor.RegisterNestedType<Rotation>();
-            PacketProcessor.SubscribeReusable<ReceiveAddonDataPacket, NetPeer>(OnReceiveAddonsData);
-            PacketProcessor.SubscribeReusable<ReceiveAddonsPacket, NetPeer>(OnReceiveAddons);
+            PacketProcessor.RegisterNestedType<AddonInfo>();
             PacketProcessor.SubscribeReusable<PlayerInteractPacket, NetPeer>(OnPlayerInteract);
-            PacketProcessor.SubscribeReusable<RoundRestartPacket, NetPeer>(OnRoundRestart);
-            PacketProcessor.SubscribeReusable<SendBroadcastPacket, NetPeer>(OnSendBroadcast);
-            PacketProcessor.SubscribeReusable<SendHintPacket, NetPeer>(OnSendHint);
-            PacketProcessor.SubscribeReusable<ClearBroadcastsPacket, NetPeer>(OnClearBroadcast);
+            PacketProcessor.SubscribeReusable<ServerInteractPacket, NetPeer>(OnServerInteract);
             PacketProcessor.SubscribeReusable<ReceiveCommandsPacket, NetPeer>(OnReceiveCommandsData);
-            PacketProcessor.SubscribeReusable<ExecuteConsoleCommandPacket, NetPeer>(OnExecuteConsoleCommand);
+            PacketProcessor.SubscribeReusable<SendTokenPacket, NetPeer>(OnReceiveNewToken);
+            PacketProcessor.SubscribeReusable<SendAddonsInfoPacket, NetPeer>(OnReceiveAddons);
+            PacketProcessor.SubscribeReusable<EventPacket, NetPeer>(OnReceiveEvent);
             NetworkListener = new NetManager(this);
             NetworkListener.Start();
+            CreateDefaultConnectionData();
             NetworkListener.Connect(plugin.Config.HostAddress, plugin.Config.HostPort, defaultdata);
             refreshPolls = Timing.RunCoroutine(RefreshPolls());
-            sendPlayerInfo = Timing.RunCoroutine(SendPlayersInfo());
         }
 
-        private void OnExecuteConsoleCommand(ExecuteConsoleCommandPacket packet, NetPeer peer)
+        private void OnServerInteract(ServerInteractPacket packet, NetPeer peer)
         {
-            var sender = new CustomConsoleExecutor(this, packet.Command);
-            GameCore.Console.singleton.TypeCommand(packet.Command, sender);
-        }
-
-        private void OnSendHint(SendHintPacket packet, NetPeer peer)
-        {
-            foreach (var plr in Player.List)
+            ServerInteractionType interactionType = (ServerInteractionType)packet.Type;
+            if (!InstalledAddons.TryGetValue(packet.AddonId, out AddonInfo addonInfo))
             {
-                if (plr.ReferenceHub.serverRoles.LocalRemoteAdmin || !packet.IsAdminOnly)
-                    plr.ShowHint(packet.Message, packet.Duration);
+                Logger.Error($"Addon with id \"{packet.AddonId}\" tried to use interaction \"{interactionType}\" on server but addon is not loaded!");
+                return;
+            }
+
+            NetDataReader reader = new NetDataReader(packet.Data);
+
+            switch (interactionType)
+            {
+                case ServerInteractionType.ExecuteCommand:
+                    {
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.ConsoleCommandExecution))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to execute \"Console Command\" but server dont have required permission!");
+                            return;
+                        }
+
+                        var command = reader.GetString();
+                        var arguments = reader.GetStringArray();
+
+                        var sender = new CustomConsoleExecutor(this, command, arguments, packet.AddonId);
+                        GameCore.Console.singleton.TypeCommand($"{command} {string.Join(" ", arguments)}", sender);
+                    }
+                    break;
+                case ServerInteractionType.Broadcast:
+                    {
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.Broadcasts))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"Broadcast\" but server dont have required permission!");
+                            return;
+                        }
+
+                        var message = reader.GetString();
+                        var duration = reader.GetUShort();
+                        var adminOnly = reader.GetBool();
+
+                        if (adminOnly)
+                        {
+                            foreach (var plr in Player.List)
+                                if (plr.ReferenceHub.serverRoles.LocalRemoteAdmin)
+                                    plr.Broadcast(duration, message, BroadcastFlags.Normal, false);
+                        }
+                        else
+                            Server.Broadcast.RpcAddElement(message, duration, BroadcastFlags.Normal);
+                    }
+                    break;
+                case ServerInteractionType.ClearBroadcast:
+                    {
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.ClearBroadcasts))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"Clear Broadcasts\" but server dont have required permission!");
+                            return;
+                        }
+
+                        Server.Broadcast.RpcClearElements();
+                    }
+                    break;
+                case ServerInteractionType.Hint:
+                    {
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.HintMessages))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"Hint Message\" but server dont have required permission!");
+                            return;
+                        }
+
+                        var message = reader.GetString();
+                        var duration = reader.GetFloat();
+                        var adminOnly = reader.GetBool();
+
+                        foreach (var plr in Player.List)
+                        {
+                            if (plr.ReferenceHub.serverRoles.LocalRemoteAdmin || !adminOnly)
+                                plr.ShowHint(message, duration);
+                        }
+                    }
+                    break;
+                case ServerInteractionType.Roundrestart:
+                    {
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.Roundrestart))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to use \"Round Restart\" but server dont have required permission!");
+                            return;
+                        }
+
+                        var port = reader.GetUShort();
+
+                        if (port != 0)
+                            ReferenceHub.HostHub.playerStats.RpcRoundrestartRedirect(0f, port);
+                        else
+                            ReferenceHub.HostHub.playerStats.Roundrestart();
+                    }
+                    break;
             }
         }
 
-        private void OnRoundRestart(RoundRestartPacket packet, NetPeer peer)
+        private void OnReceiveEvent(EventPacket packet, NetPeer peer)
         {
-            if (packet.Port != 0)
-                ReferenceHub.HostHub.playerStats.RpcRoundrestartRedirect(0f, packet.Port);
+            NetDataReader data = new NetDataReader(packet.Data);
+            switch ((EventType)packet.Type)
+            {
+                case EventType.PlayerJoined:
+                    {
+                        string userId = data.GetString();
+                        if (Players.TryGetValue(userId, out NetworkedPlayer plr))
+                            plr.NetworkData.IsConnected = true;
+                    }
+                    break;
+            }
+        }
+
+        private void OnReceiveAddons(SendAddonsInfoPacket packet, NetPeer peer)
+        {
+            foreach(var addon in packet.Addons)
+            {
+                if (!InstalledAddons.ContainsKey(addon.AddonId))
+                    InstalledAddons.Add(addon.AddonId, addon);
+
+                List<string> MissingInfo = new List<string>();
+                if (!plugin.Config.Permissions.ReceivePermissions.Contains(AddonSendPermissionTypes.Everything) && addon.SendPermissions.Any(p => p != (byte)AddonSendPermissionTypes.None))
+                    foreach (var sendPerm in addon.SendPermissions)                                                                                   
+                        if (!plugin.Config.Permissions.ReceivePermissions.Contains((AddonSendPermissionTypes)sendPerm))
+                            MissingInfo.Add($" - Missing SEND permission \"{(AddonSendPermissionTypes)sendPerm}\"");
+
+                if (!plugin.Config.Permissions.SendPermissions.Contains(AddonReceivePermissionTypes.Everything) && addon.ReceivePermissions.Any(p => p != (byte)AddonReceivePermissionTypes.None))
+                    foreach (var sendPerm in addon.ReceivePermissions)
+                        if (!plugin.Config.Permissions.SendPermissions.Contains((AddonReceivePermissionTypes)sendPerm))
+                            MissingInfo.Add($" - Missing RECEIVE permission \"{(AddonReceivePermissionTypes)sendPerm}\"");
+
+                if (MissingInfo.Count != 0)
+                    Logger.Info($"Addon \"{addon.AddonName}\" will not work properly, addon requires these permissions\n{string.Join(Environment.NewLine, MissingInfo)}");
+
+                var config = Encoding.UTF8.GetString(addon.RemoteConfig);
+                if (!File.Exists(Path.Combine(remoteConfigsPath, $"{addon.AddonName}.yml")))
+                {
+                    File.WriteAllText(Path.Combine(remoteConfigsPath, $"{addon.AddonName}.yml"), config);
+                    Logger.Info($"Added missing config for addon \"{addon.AddonName}\"!");
+                }
+
+                var rawConfig = File.ReadAllText(Path.Combine(remoteConfigsPath, $"{addon.AddonName}.yml"));
+                var receivedConfig = Deserializer.Deserialize<Dictionary<string, object>>(config);
+                var loadedConfig = Deserializer.Deserialize<Dictionary<string, object>>(rawConfig);
+
+                foreach(var missingval in receivedConfig.Except(loadedConfig))
+                {
+                    loadedConfig.Add(missingval.Key, missingval.Value);
+                    Logger.Info($"Added missing config parameter \"{missingval.Key}\" in addon \"{addon.AddonName}\"!");
+                }
+
+                foreach (var removeval in loadedConfig.Except(receivedConfig))
+                {
+                    loadedConfig.Remove(removeval.Key);
+                    Logger.Info($"Removed not existing config parameter \"{removeval.Key}\" in addon \"{addon.AddonName}\"!");
+                }
+
+                rawConfig = Serializer.Serialize(loadedConfig);
+                File.WriteAllText(Path.Combine(remoteConfigsPath, $"{addon.AddonName}.yml"), rawConfig);
+
+                if (ClientAddons.TryGetValue(addon.AddonId, out IAddonClient<IConfig> clientAddon))
+                {
+                    clientAddon.OnReady();
+                }
+                else
+                {
+                    Logger.Info($"RemoteAddon \"{addon.AddonName}\" ({addon.AddonVersion}) made by {addon.AddonAuthor} is ready!");
+                }
+                PacketProcessor.Send<AddonOkPacket>(NetworkListener, new AddonOkPacket()
+                {
+                    AddonId = addon.AddonId,
+                    RemoteConfig = Encoding.UTF8.GetBytes(rawConfig)
+                }, DeliveryMethod.ReliableOrdered);
+            }
+        }
+
+        private void OnReceiveNewToken(SendTokenPacket packet, NetPeer peer)
+        {
+            if (!File.Exists(tokenPath))
+            {
+                File.WriteAllBytes(tokenPath, packet.Token);
+                CreateDefaultConnectionData();
+                Logger.Info($"Received new token from host and saved.");
+            }
             else
-                ReferenceHub.HostHub.playerStats.Roundrestart();
-        }
-
-        private void OnReceiveAddonsData(ReceiveAddonDataPacket packet, NetPeer peer)
-        {
-            var reader = new NetDataReader(packet.Data);
-            foreach (var addon in Addons.Where(p5 => p5.Key == packet.AddonID))
             {
-                try
-                {
-                    addon.Value.OnMessageReceived(null, reader);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error while invoking OnMessageReceived in addon {addon.Value.AddonName} {ex.ToString()}");
-                }
+                Logger.Error($"Failed while saving new token, token file already exists! ( {tokenPath} )");
             }
         }
 
-        private void OnClearBroadcast(ClearBroadcastsPacket packet, NetPeer peer)
+        private void OnReceiveAddonsData(AddonDataPacket packet, NetPeer peer)
         {
-            Server.Broadcast.RpcClearElements();
-        }
-
-        private void OnSendBroadcast(SendBroadcastPacket packet, NetPeer peer)
-        {
-            if (packet.IsAdminOnly)
+            if (ClientAddons.TryGetValue(packet.AddonId, out IAddonClient<IConfig> addon))
             {
-                foreach (var plr in Player.List)
-                {
-                    if (plr.ReferenceHub.serverRoles.LocalRemoteAdmin)
-                        plr.Broadcast(packet.Duration, packet.Message, BroadcastFlags.Normal, false);
-                    else
-                        Server.Broadcast.RpcAddElement(packet.Message, packet.Duration, BroadcastFlags.Normal);
-                }
+                addon.OnMessageReceived(new NetDataReader(packet.Data));
+            }
+            else
+            {
+                Logger.Error($"Failed receiving data while addon with id \"{packet.AddonId}\" is not loaded!");
             }
         }
 
         private void OnPlayerInteract(PlayerInteractPacket packet, NetPeer peer)
         {
-            NetDataReader reader = new NetDataReader(packet.Data);
+            PlayerInteractionType interactionType = (PlayerInteractionType)packet.Type;
+            if (!InstalledAddons.TryGetValue(packet.AddonId, out AddonInfo addonInfo))
+            {
+                Logger.Error($"Addon with id \"{packet.AddonId}\" tried to use interaction \"{interactionType}\" on player \"{packet.UserID}\" but addon is not loaded!");
+                return;
+            }
 
+            NetDataReader reader = new NetDataReader(packet.Data);
             Player p = (packet.UserID == "SERVER CONSOLE" || packet.UserID == "GAME CONSOLE") ? Player.Get(PlayerManager.localPlayer) : Player.Get(packet.UserID);
             if (p == null)
             {
@@ -525,45 +596,90 @@ namespace NetworkedPlugins
                 return;
             }
 
-            switch (packet.Type)
+            switch ((PlayerInteractionType)packet.Type)
             {
                 // Kill player
-                case 0:
+                case PlayerInteractionType.KillPlayer:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.KillPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"{interactionType}\" but server dont have required permission!");
+                        break;
+                    }
+
                     p.Kill();
                     break;
 
                 // Report message
-                case 1:
-                    p.SendConsoleMessage("[REPORTING] " + reader.GetString(), "GREEN");
+                case PlayerInteractionType.ReportMessage:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.ReportMessages))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"{interactionType}\" but server dont have required permission!");
+                        break;
+                    }
+
+                    p.SendConsoleMessage($"[REPORTING] {reader.GetString()}", "GREEN");
                     break;
 
                 // Remoteadmin message
-                case 2:
-                    p.RemoteAdminMessage(reader.GetString(), true, "NP");
+                case PlayerInteractionType.RemoteAdminMessage:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.RemoteAdminMessages))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"{interactionType}\" but server dont have required permission!");
+                        break;
+                    }
+
+                    p.RemoteAdminMessage(reader.GetString(), true, reader.GetString());
                     break;
 
                 // Console message
-                case 3:
-                    p.SendConsoleMessage(reader.GetString(), reader.GetString());
+                case PlayerInteractionType.GameConsoleMessage:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.GameConsoleMessages))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"{interactionType}\" but server dont have required permission!");
+                        break;
+                    }
+
+                    var message = reader.GetString();
+                    var pluginName = reader.GetString();
+
+                    p.SendConsoleMessage($"[{pluginName}] {message}", reader.GetString());
                     break;
 
                 // Redirect
-                case 4:
+                case PlayerInteractionType.Redirect:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.RedirectPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     SendClientToServer(p, reader.GetUShort());
                     break;
 
                 // Disconnect
-                case 5:
+                case PlayerInteractionType.Disconnect:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.DisconnectPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     ServerConsole.Disconnect(p.GameObject, reader.GetString());
                     break;
 
                 // Hint
-                case 6:
+                case PlayerInteractionType.Hint:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.HintMessages))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to send \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     p.ShowHint(reader.GetString(), reader.GetFloat());
                     break;
 
                 // Send position to network
-                case 7:
+                case PlayerInteractionType.SendPosition:
                     bool sendPosition = reader.GetBool();
                     if (!p.SessionVariables.ContainsKey("SP"))
                         p.SessionVariables.Add("SP", sendPosition);
@@ -571,7 +687,7 @@ namespace NetworkedPlugins
                     break;
 
                 // Send rotation to network
-                case 8:
+                case PlayerInteractionType.SendRotation:
                     bool sendRotation = reader.GetBool();
                     if (!p.SessionVariables.ContainsKey("SR"))
                         p.SessionVariables.Add("SR", sendRotation);
@@ -579,42 +695,49 @@ namespace NetworkedPlugins
                     break;
 
                 // Teleport
-                case 9:
+                case PlayerInteractionType.Teleport:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.TeleportPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     p.Position = new UnityEngine.Vector3(reader.GetFloat(), reader.GetFloat(), reader.GetFloat());
                     break;
 
                 // Godmode
-                case 10:
+                case PlayerInteractionType.Godmode:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.GodmodePlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to change \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     p.IsGodModeEnabled = reader.GetBool();
                     break;
 
                 // Noclip
-                case 11:
+                case PlayerInteractionType.Noclip:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.NoclipPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to change \"{interactionType}\" player but server dont have required permission!");
+                        break;
+                    }
+
                     p.NoClipEnabled = reader.GetBool();
                     break;
 
                 // Clear Inv
-                case 12:
+                case PlayerInteractionType.ClearInventory:
+                    if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.ClearInventoryPlayer))
+                    {
+                        Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to \"{interactionType}\" but server dont have required permission!");
+                        break;
+                    }
+
                     p.ClearInventory();
                     break;
             }
-        }
-
-        private void OnReceiveAddons(ReceiveAddonsPacket packet, NetPeer peer)
-        {
-            foreach (var addon in Addons.Where(p => packet.AddonIds.Contains(p.Key)))
-            {
-                try
-                {
-                    addon.Value.OnReady(null);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"Error while invoking OnReady in addon {addon.Value.AddonName} {ex.ToString()}");
-                }
-            }
-
-            canSendData = true;
         }
 
         private Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>> Commands = new Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>()
@@ -625,25 +748,53 @@ namespace NetworkedPlugins
 
         private void OnReceiveCommandsData(ReceiveCommandsPacket packet, NetPeer peer)
         {
-            foreach(var pCmd in packet.Commands)
+            foreach (var pCmd in packet.Commands)
             {
+                if (!InstalledAddons.TryGetValue(pCmd.AddonID, out AddonInfo addonInfo))
+                {
+                    Logger.Error($"Addon with id \"{pCmd.AddonID}\" tried to add command \"{pCmd.CommandName.ToUpper()}\" but addon is not loaded!");
+                    continue;
+                }
+                CommandType commandType = (CommandType)pCmd.Type;
+
+                switch (commandType)
+                {
+                    case CommandType.GameConsole:
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.GameConsoleNewCommands))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to add new \"GameConsole Command\" ({pCmd.CommandName.ToUpper()}) but server dont have required permission!");
+                            continue;
+                        }
+                        break;
+                    case CommandType.RemoteAdmin:
+                        if (!Extensions.CheckSendPermission(AddonReceivePermissionTypes.RemoteAdminNewCommands))
+                        {
+                            Logger.Error($"Addon \"{addonInfo.AddonName}\" tried to add new \"RA Command\" ({pCmd.CommandName.ToUpper()}) but server dont have required permission!");
+                            continue;
+                        }
+                        break;
+                }
+
                 var command = new TemplateCommand();
                 command.AssignedAddonID = pCmd.AddonID;
                 command.DummyCommand = pCmd.CommandName;
                 command.DummyDescription = pCmd.Description;
                 command.Permission = pCmd.Permission;
+                command.Type = pCmd.Type;
 
-                if (pCmd.IsRaCommand)
+                Commands[commandType].Add(pCmd.CommandName.ToUpper(), command);
+
+                switch (commandType)
                 {
-                    Commands[CommandType.RemoteAdmin].Add(pCmd.CommandName.ToUpper(), command);
-                    CommandProcessor.RemoteAdminCommandHandler.RegisterCommand(command);
+                    case CommandType.RemoteAdmin:
+                        CommandProcessor.RemoteAdminCommandHandler.RegisterCommand(command);
+                        break;
+                    case CommandType.GameConsole:
+                        QueryProcessor.DotCommandHandler.RegisterCommand(command);
+                        break;
                 }
-                else
-                {
-                    Commands[CommandType.GameConsole].Add(pCmd.CommandName.ToUpper(), command);
-                    QueryProcessor.DotCommandHandler.RegisterCommand(command);
-                }
-                Logger.Info($"Command {pCmd.CommandName} registered from addon {pCmd.AddonID}");
+
+                Logger.Info($"[{commandType}] Command \"{pCmd.CommandName}\" registered in addon \"{addonInfo.AddonName}\".");
             }
         }
 
@@ -675,35 +826,6 @@ namespace NetworkedPlugins
                         NetworkListener.PollEvents();
                 }
             }
-        }
-
-        private IEnumerator<float> SendPlayersInfo()
-        {
-            while (true)
-            {
-                yield return Timing.WaitForSeconds(5f);
-                try
-                {
-                    UpdatePlayers();
-                }
-                catch (Exception)
-                {
-                }
-            }
-        }
-
-        private void UpdatePlayers()
-        {
-            List<PlayerInfoPacket> players = new List<PlayerInfoPacket>();
-            foreach (var plr in Player.List)
-            {
-                players.Add(new PlayerInfoPacket()
-                {
-                    UserID = plr.UserId,
-                });
-            }
-
-            PacketProcessor.Send<ReceivePlayersDataPacket>(NetworkListener, new ReceivePlayersDataPacket() { Players = players }, DeliveryMethod.ReliableOrdered);
         }
 
         private IEnumerator<float> Reconnect()

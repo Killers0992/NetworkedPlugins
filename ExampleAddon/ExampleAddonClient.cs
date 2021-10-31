@@ -3,7 +3,7 @@ namespace ExampleAddon
     using System;
     using System.Collections.Generic;
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Models;
+    using NetworkedPlugins.API.Structs;
     using LiteNetLib.Utils;
     using MEC;
 
@@ -32,13 +32,13 @@ namespace ExampleAddon
         }
 
         /// <inheritdoc/>
-        public override void OnReady(NPServer server)
+        public override void OnReady()
         {
             Logger.Info("Addon is ready");
         }
 
         /// <inheritdoc/>
-        public override void OnMessageReceived(NPServer server, NetDataReader reader)
+        public override void OnMessageReceived(NetDataReader reader)
         {
             Logger.Info($"Received ( \"{reader.GetString()}\" )");
         }

@@ -3,16 +3,17 @@ namespace NetworkedPlugins.API
     using System;
     using System.Collections.Generic;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Models;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Structs;
     using LiteNetLib;
     using LiteNetLib.Utils;
+    using NetworkedPlugins.API.Packets;
 
     /// <summary>
     /// Network Client Addon.
     /// </summary>
     /// <typeparam name="TConfig">The config type.</typeparam>
-    public abstract class NPAddonClient<TConfig> : IAddon<TConfig>
+    public abstract class NPAddonClient<TConfig> : IAddonClient<TConfig>
         where TConfig : IConfig, new()
     {
         /// <inheritdoc/>
@@ -48,42 +49,36 @@ namespace NetworkedPlugins.API
         /// <param name="writer">Data writer.</param>
         public void SendData(NetDataWriter writer)
         {
-            Manager.PacketProcessor.Send<ReceiveAddonDataPacket>(Manager.NetworkListener, new ReceiveAddonDataPacket() { AddonID = AddonId, Data = writer.Data }, DeliveryMethod.ReliableOrdered);
+            Manager.PacketProcessor.Send<AddonDataPacket>(Manager.NetworkListener,
+                new AddonDataPacket()
+                {
+                    AddonId = AddonId,
+                    Data = writer.Data
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <inheritdoc/>
-        public virtual void OnMessageReceived(NPServer server, NetDataReader reader)
+        public virtual void OnMessageReceived(NetDataReader reader)
         {
         }
 
         /// <inheritdoc/>
         public virtual void OnEnable()
         {
+            Logger.Info($"Enabled addon \"{AddonName}\" ({AddonVersion}) made by {AddonAuthor}.");
+        }
+
+
+        /// <inheritdoc/>
+        public virtual void OnDisable()
+        {
+            Logger.Info($"Disabled addon \"{AddonName}\" ({AddonVersion}) made by {AddonAuthor}.");
         }
 
         /// <inheritdoc/>
-        public virtual void OnReady(NPServer server)
+        public virtual void OnReady()
         {
-        }
-
-        /// <summary>
-        /// Only works on server.
-        /// </summary>
-        /// <param name="cmd"> Dont use.</param>
-        /// <param name="arguments"> Dont use that.</param>
-        public void OnConsoleCommand(string cmd, List<string> arguments)
-        {
-        }
-
-        /// <summary>
-        /// Only works on server.
-        /// </summary>
-        /// <param name="server"> Dont use.</param>
-        /// <param name="command"> Dont use that.</param>
-        /// <param name="response"> Dont use that 2x.</param>
-        /// <param name="isRa"> Dont use that 3x.</param>
-        public void OnConsoleResponse(NPServer server, string command, string response, bool isRa)
-        {
+            Logger.Info($"Addon \"{AddonName}\" ({AddonVersion}) made by {AddonAuthor} is ready!");
         }
 
         /// <summary>
@@ -91,6 +86,6 @@ namespace NetworkedPlugins.API
         /// </summary>
         /// <param name="other"> Config.</param>
         /// <returns>Int.</returns>
-        public int CompareTo(IAddon<IConfig> other) => 0;
+        public int CompareTo(IAddonClient<IConfig> other) => 0;
     }
 }

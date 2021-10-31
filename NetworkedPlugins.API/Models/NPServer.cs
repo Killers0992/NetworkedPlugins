@@ -1,11 +1,19 @@
-namespace NetworkedPlugins.API.Models
+namespace NetworkedPlugins.API.Structs
 {
     using System.Collections.Generic;
 
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Packets;
+    using NetworkedPlugins.API.Structs;
     using LiteNetLib;
     using LiteNetLib.Utils;
+    using NetworkedPlugins.API.Packets.ServerPackets;
+    using System.Linq;
+    using System;
+    using System.IO;
+    using System.Reflection;
+    using System.Text;
+    using NetworkedPlugins.API.Extensions;
+    using NetworkedPlugins.API.Enums;
 
     /// <summary>
     /// Server.
@@ -20,14 +28,148 @@ namespace NetworkedPlugins.API.Models
         /// <param name="serverAddress">Server Address.</param>
         /// <param name="port">Server Port.</param>
         /// <param name="maxPlayers">Max Players.</param>
-        public NPServer(NetPeer server, NetPacketProcessor processor, string serverAddress, ushort port, int maxPlayers)
+        public NPServer(NetPacketProcessor processor, string serverAddress, ushort port, int maxPlayers)
         {
             this.PacketProcessor = processor;
-            this.Peer = server;
             this.ServerAddress = serverAddress;
             this.ServerPort = port;
             this.MaxPlayers = maxPlayers;
         }
+
+        public NetworkServerConfig ServerConfig { get; set; }
+        public string ServerDirectory { get; set; }
+
+        public IEnumerable<IAddonDedicated<IConfig, IConfig>> AddonInstances =>
+            NPManager.Singleton.DedicatedAddonHandlers
+            .Where(p => p.Value.AddonInstances.ContainsKey(this))
+            .Select(p => p.Value.AddonInstances[this]);
+
+        public IAddonDedicated<IConfig, IConfig> GetAddon(string addonId)
+        {
+            if (NPManager.Singleton.DedicatedAddonHandlers.TryGetValue(addonId, out IAddonHandler<IConfig> handler))
+                if (handler.AddonInstances.TryGetValue(this, out IAddonDedicated<IConfig, IConfig> addon))
+                    return addon;
+            return null;
+        }
+
+        public void LoadServerConfig()
+        {
+            if (!Directory.Exists(Path.Combine(ServerDirectory)))
+                Directory.CreateDirectory(Path.Combine(ServerDirectory));
+
+            if (!File.Exists(Path.Combine(ServerDirectory, "config.yml")))
+                File.WriteAllText(Path.Combine(ServerDirectory, "config.yml"), NPManager.Serializer.Serialize(new NetworkServerConfig()));
+
+            ServerConfig = NPManager.Deserializer.Deserialize<NetworkServerConfig>(File.ReadAllText(Path.Combine(ServerDirectory, "config.yml")));
+            SaveServerConfig();
+        }
+
+        public void SaveServerConfig()
+        {
+            File.WriteAllText(Path.Combine(ServerDirectory, "config.yml"), NPManager.Serializer.Serialize(ServerConfig));
+        }
+
+        public byte[] GenNewToken()
+        {
+            var guid = Guid.NewGuid();
+            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(guid.ToString()));
+            ServerConfig.Token = token;
+
+            SaveServerConfig();
+            return Encoding.UTF8.GetBytes(token);
+        }
+
+        public void UpdateName()
+        {
+            var property = this.GetType().GetProperty("ServerName", BindingFlags.Public | BindingFlags.Instance);
+            var field = property.GetBackingField();
+            field.SetValue(this, ServerConfig.ServerName);
+        }
+
+
+        public bool InitServer(ConnectionRequest request, string receivedToken, List<string> addons)
+        {
+            ServerDirectory = Path.Combine("servers", $"{ServerAddress}_{ServerPort}");
+            LoadServerConfig();
+            UpdateName();
+
+            foreach (var addon in addons)
+                if (!ServerConfig.InstalledAddons.Contains(addon))
+                    ServerConfig.InstalledAddons.Add(addon);
+
+            if (string.IsNullOrEmpty(receivedToken))
+            {
+                if (!string.IsNullOrEmpty(ServerConfig.Token))
+                {
+                    NPManager.Singleton.Logger.Error($"Received invalid token from server {FullAddress}.");
+                    NetDataWriter writer = new NetDataWriter();
+                    writer.Put((byte)RejectType.InvalidToken);
+                    writer.Put("Invalid token");
+                    request.Reject(writer);
+                    return false;
+                }
+
+                Peer = request.Accept();
+
+                PacketProcessor.Send<SendTokenPacket>(Peer,
+                    new SendTokenPacket()
+                    {
+                        Token = GenNewToken()
+                    }, DeliveryMethod.ReliableOrdered);
+                return true;
+            }
+
+            if (receivedToken != ServerConfig.Token)
+            {
+                NPManager.Singleton.Logger.Error($"Received invalid token from server {FullAddress}.");
+                NetDataWriter writer = new NetDataWriter();
+                writer.Put((byte)RejectType.InvalidToken);
+                writer.Put("Invalid token");
+                request.Reject(writer);
+                return false;
+            }
+            Peer = request.Accept();
+            return true;
+        }
+
+        public void UninitServer()
+        {
+            foreach (var addon in AddonInstances)
+            {
+                try
+                {
+                    addon.OnDisable();
+                }
+                catch (Exception ex)
+                {
+                    NPManager.Singleton.Logger.Error($"Error while executing OnDisable event in {addon.AddonName}\n{ex}");
+                }
+            }
+        }
+
+        public void LoadInstalledAddons()
+        {
+            foreach (var addon in NPManager.Singleton.DedicatedAddonHandlers.Where(p => ServerConfig.InstalledAddons.Contains(p.Key)))
+            {
+                addon.Value.AddAddon(this);
+            }
+
+            PacketProcessor.Send<SendAddonsInfoPacket>(Peer, new SendAddonsInfoPacket()
+            {
+                Addons = AddonInstances.Select(p => new Packets.AddonInfo()
+                {
+                    AddonId = p.AddonId,
+                    AddonAuthor = p.AddonAuthor,
+                    AddonName = p.AddonName,
+                    AddonVersion = p.AddonVersion.ToString(3),
+                    ReceivePermissions = p.Permissions.SendPermissions.Select(p2 => (byte)p2).ToArray(),
+                    SendPermissions = p.Permissions.ReceivePermissions.Select(p2 => (byte)p2).ToArray(),
+                    RemoteConfig = Encoding.UTF8.GetBytes(NPManager.Serializer.Serialize(p.RemoteConfig))
+                }).ToList()
+            }, DeliveryMethod.ReliableOrdered);
+        }
+
+
 
         /// <summary>
         /// Gets or sets Packet processor.
@@ -38,6 +180,11 @@ namespace NetworkedPlugins.API.Models
         /// Gets or sets Server peer.
         /// </summary>
         public NetPeer Peer { get; set; }
+
+        /// <summary>
+        /// Gets server name.
+        /// </summary>
+        public string ServerName { get; } = "Default Name";
 
         /// <summary>
         /// Gets server address.
@@ -55,14 +202,14 @@ namespace NetworkedPlugins.API.Models
         public int MaxPlayers { get; } = 25;
 
         /// <summary>
-        /// Gets or sets current online players.
+        /// Gets dictionary of online players.
         /// </summary>
-        public Dictionary<string, NPPlayer> Players { get; set; } = new Dictionary<string, NPPlayer>();
+        public Dictionary<string, NPPlayer> PlayersDictionary { get; } = new Dictionary<string, NPPlayer>();
 
         /// <summary>
-        /// Gets addons running on that server.
+        /// Gets current online players.
         /// </summary>
-        public List<IAddon<IConfig>> Addons { get; internal set; } = new List<IAddon<IConfig>>();
+        public IEnumerable<NPPlayer> Players => PlayersDictionary.Values;
 
         /// <summary>
         /// Gets server full address.
@@ -76,12 +223,22 @@ namespace NetworkedPlugins.API.Models
         /// <returns>Player.</returns>
         public NPPlayer GetPlayer(string userId)
         {
-            if (Players.ContainsKey(userId))
+            if (PlayersDictionary.ContainsKey(userId))
             {
-                return Players[userId];
+                return PlayersDictionary[userId];
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// If player is online.
+        /// </summary>
+        /// <param name="userId">Player UserID.</param>
+        /// <returns>Boolean.</returns>
+        public bool IsPlayerOnline(string userId)
+        {
+            return PlayersDictionary.ContainsKey(userId);
         }
 
         /// <summary>
@@ -91,7 +248,16 @@ namespace NetworkedPlugins.API.Models
         /// <param name="arguments">Command arguments.</param>
         public void ExecuteCommand(string command, List<string> arguments)
         {
-            PacketProcessor.Send<ExecuteConsoleCommandPacket>(Peer, new ExecuteConsoleCommandPacket() { AddonID = string.Empty, Command = $"{command} {string.Join(" ", arguments)}" }, DeliveryMethod.ReliableOrdered);
+            NetDataWriter writer = new NetDataWriter();
+            writer.Put(command);
+            writer.PutArray(arguments.ToArray());
+            PacketProcessor.Send<ServerInteractPacket>(Peer, 
+                new ServerInteractPacket()
+                { 
+                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    Type = (byte)ServerInteractionType.ExecuteCommand,
+                    Data = writer.Data,
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -102,7 +268,17 @@ namespace NetworkedPlugins.API.Models
         /// <param name="isAdminOnly">Is displayed only for admins.</param>
         public void SendBroadcast(string message, ushort duration, bool isAdminOnly = false)
         {
-            PacketProcessor.Send<SendBroadcastPacket>(Peer, new SendBroadcastPacket() { Message = message, IsAdminOnly = isAdminOnly, Duration = duration }, DeliveryMethod.ReliableOrdered);
+            NetDataWriter writer = new NetDataWriter();
+            writer.Put(message);
+            writer.Put(duration);
+            writer.Put(isAdminOnly);
+            PacketProcessor.Send<ServerInteractPacket>(Peer,
+                new ServerInteractPacket()
+                {
+                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    Type = (byte)ServerInteractionType.Broadcast,
+                    Data = writer.Data,
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -113,7 +289,17 @@ namespace NetworkedPlugins.API.Models
         /// <param name="isAdminOnly">Is displayed only for admins.</param>
         public void SendHint(string message, float duration, bool isAdminOnly = false)
         {
-            PacketProcessor.Send<SendHintPacket>(Peer, new SendHintPacket() { Message = message, IsAdminOnly = isAdminOnly, Duration = duration }, DeliveryMethod.ReliableOrdered);
+            NetDataWriter writer = new NetDataWriter();
+            writer.Put(message);
+            writer.Put(duration);
+            writer.Put(isAdminOnly);
+            PacketProcessor.Send<ServerInteractPacket>(Peer,
+                new ServerInteractPacket()
+                {
+                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    Type = (byte)ServerInteractionType.Hint,
+                    Data = writer.Data,
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -121,7 +307,13 @@ namespace NetworkedPlugins.API.Models
         /// </summary>
         public void ClearBroadcast()
         {
-            PacketProcessor.Send<ClearBroadcastsPacket>(Peer, new ClearBroadcastsPacket(), DeliveryMethod.ReliableOrdered);
+            PacketProcessor.Send<ServerInteractPacket>(Peer,
+                new ServerInteractPacket()
+                {
+                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    Type = (byte)ServerInteractionType.ClearBroadcast,
+                    Data = new byte[0],
+                }, DeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -130,7 +322,15 @@ namespace NetworkedPlugins.API.Models
         /// <param name="port">Optional for redirecting everyone to other server..</param>
         public void RoundRestart(ushort port = 0)
         {
-            PacketProcessor.Send<RoundRestartPacket>(Peer, new RoundRestartPacket() { Port = port }, DeliveryMethod.ReliableOrdered);
+            NetDataWriter writer = new NetDataWriter();
+            writer.Put(port);
+            PacketProcessor.Send<ServerInteractPacket>(Peer,
+                new ServerInteractPacket()
+                {
+                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    Type = (byte)ServerInteractionType.Hint,
+                    Data = writer.Data,
+                }, DeliveryMethod.ReliableOrdered);
         }
     }
 }
