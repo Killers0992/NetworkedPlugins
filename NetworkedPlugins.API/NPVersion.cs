@@ -1,8 +1,8 @@
-﻿using NetworkedPlugins.API.Properties;
-using System;
-
-namespace NetworkedPlugins.API
+﻿namespace NetworkedPlugins.API
 {
+    using NetworkedPlugins.API.Properties;
+    using System;
+
     public class NPVersion
     {
         private static Version _version;
@@ -10,7 +10,7 @@ namespace NetworkedPlugins.API
         {
             get
             {
-                if (_version == null)
+                if (_version != null)
                     return _version;
 
                 if (Version.TryParse(Resources.version, out Version ver))

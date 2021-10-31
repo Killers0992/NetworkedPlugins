@@ -369,6 +369,7 @@ namespace NetworkedPlugins
             PacketProcessor.SubscribeReusable<SendTokenPacket, NetPeer>(OnReceiveNewToken);
             PacketProcessor.SubscribeReusable<SendAddonsInfoPacket, NetPeer>(OnReceiveAddons);
             PacketProcessor.SubscribeReusable<EventPacket, NetPeer>(OnReceiveEvent);
+            PacketProcessor.SubscribeReusable<AddonDataPacket, NetPeer>(OnReceiveAddonData);
             NetworkListener = new NetManager(this);
             NetworkListener.Start();
             CreateDefaultConnectionData();
@@ -567,7 +568,7 @@ namespace NetworkedPlugins
             }
         }
 
-        private void OnReceiveAddonsData(AddonDataPacket packet, NetPeer peer)
+        private void OnReceiveAddonData(AddonDataPacket packet, NetPeer peer)
         {
             if (ClientAddons.TryGetValue(packet.AddonId, out IAddonClient<IConfig> addon))
             {
