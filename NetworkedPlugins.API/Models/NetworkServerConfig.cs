@@ -11,6 +11,6 @@ namespace NetworkedPlugins.API.Models
         public string LinkToken { get; set; }
         public string Token { get; set; }
         public string ServerName { get; set; }
-        public List<string> InstalledAddons { get; set; }
+        public List<string> InstalledAddons { get; set; } = new List<string>();
     }
 }

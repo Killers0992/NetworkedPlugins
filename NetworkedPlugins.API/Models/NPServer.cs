@@ -89,24 +89,19 @@ namespace NetworkedPlugins.API.Models
         public bool InitServer(ConnectionRequest request, string receivedToken, List<string> addons)
         {
             ServerDirectory = Path.Combine("servers", $"{ServerAddress}_{ServerPort}");
+
             LoadServerConfig();
             UpdateName();
+
+            if (ServerConfig.InstalledAddons == null)
+                ServerConfig.InstalledAddons = new List<string>();
 
             foreach (var addon in addons)
                 if (!ServerConfig.InstalledAddons.Contains(addon))
                     ServerConfig.InstalledAddons.Add(addon);
 
-            if (string.IsNullOrEmpty(receivedToken))
+            if (string.IsNullOrEmpty(ServerConfig.Token))
             {
-                if (!string.IsNullOrEmpty(ServerConfig.Token))
-                {
-                    NPManager.Singleton.Logger.Error($"Received invalid token from server {FullAddress}.");
-                    NetDataWriter writer = new NetDataWriter();
-                    writer.Put((byte)RejectType.InvalidToken);
-                    request.Reject(writer);
-                    return false;
-                }
-
                 Peer = request.Accept();
 
                 PacketProcessor.Send<SendTokenPacket>(Peer,
@@ -125,6 +120,7 @@ namespace NetworkedPlugins.API.Models
                 request.Reject(writer);
                 return false;
             }
+
             Peer = request.Accept();
             return true;
         }
