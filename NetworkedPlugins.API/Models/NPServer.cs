@@ -104,7 +104,6 @@ namespace NetworkedPlugins.API.Structs
                     NPManager.Singleton.Logger.Error($"Received invalid token from server {FullAddress}.");
                     NetDataWriter writer = new NetDataWriter();
                     writer.Put((byte)RejectType.InvalidToken);
-                    writer.Put("Invalid token");
                     request.Reject(writer);
                     return false;
                 }
@@ -124,7 +123,6 @@ namespace NetworkedPlugins.API.Structs
                 NPManager.Singleton.Logger.Error($"Received invalid token from server {FullAddress}.");
                 NetDataWriter writer = new NetDataWriter();
                 writer.Put((byte)RejectType.InvalidToken);
-                writer.Put("Invalid token");
                 request.Reject(writer);
                 return false;
             }

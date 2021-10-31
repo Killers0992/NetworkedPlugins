@@ -72,7 +72,7 @@ namespace NetworkedPlugins.API
 
         /// <summary>
         /// Register command from addon.
-        /// </summary>
+        /// </summary>           
         /// <param name="addon">Addon.</param>
         /// <param name="command">Command interface.</param>
         public void RegisterCommand(IAddonDedicated<IConfig, IConfig> addon, ICommand command)

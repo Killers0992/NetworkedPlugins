@@ -1,6 +1,7 @@
 namespace NetworkedPlugins
 {
     using Exiled.API.Features;
+    using HarmonyLib;
     using NetworkedPlugins.API;
     using System;
 
@@ -8,6 +9,7 @@ namespace NetworkedPlugins
     public class MainClass : Plugin<PluginConfig>
     {
         private NPClient client;
+        private Harmony harmony;
 
         /// <summary>
         /// Gets or Sets singleton of main plugin class.
@@ -32,6 +34,9 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnEnabled()
         {
+            harmony = new Harmony($"networkedplugins.{DateTime.Now.Ticks}");
+            harmony.PatchAll();
+
             Singleton = this;
             client = new NPClient(this);
             base.OnEnabled();
@@ -40,6 +45,9 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnDisabled()
         {
+            harmony.UnpatchAll();
+            harmony = null;
+
             Singleton = null;
             if (client != null)
             {

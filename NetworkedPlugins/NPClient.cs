@@ -261,21 +261,18 @@ namespace NetworkedPlugins
             if (disconnectInfo.AdditionalData.TryGetByte(out byte rejectType))
             {
                 RejectType type = (RejectType)rejectType;
-                if (disconnectInfo.AdditionalData.TryGetString(out string reason))
+                switch (type)
                 {
-                    switch (type)
-                    {
-                        case RejectType.InvalidToken:
-                            Logger.Info($"[Connection rejected] Server sended token which not exists on host! (Contact owner of host)");
-                            break;
-                        case RejectType.OutdatedVersion:
-                            if (disconnectInfo.AdditionalData.TryGetString(out string newerVersion) && !isDownloading)
-                            {
-                                Logger.Info($"[Connection rejected] Server uses older version of NetworkedPlugins (Current: {NPVersion.Version.ToString(3)}, Newer: {newerVersion})");
-                                DownloadNewVersion(newerVersion);
-                            }
-                            break;
-                    }
+                    case RejectType.InvalidToken:
+                        Logger.Info($"[Connection rejected] Server sended token which not exists on host! (Contact owner of host)");
+                        break;
+                    case RejectType.OutdatedVersion:
+                        if (disconnectInfo.AdditionalData.TryGetString(out string newerVersion) && !isDownloading)
+                        {
+                            Logger.Info($"[Connection rejected] Server uses older version of NetworkedPlugins (Current: {NPVersion.Version.ToString(3)}, Newer: {newerVersion})");
+                            DownloadNewVersion(newerVersion);
+                        }
+                        break;
                 }
             }
             else
