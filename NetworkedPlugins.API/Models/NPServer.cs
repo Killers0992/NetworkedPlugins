@@ -254,7 +254,7 @@ namespace NetworkedPlugins.API.Structs
             PacketProcessor.Send<ServerInteractPacket>(Peer, 
                 new ServerInteractPacket()
                 { 
-                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                     Type = (byte)ServerInteractionType.ExecuteCommand,
                     Data = writer.Data,
                 }, DeliveryMethod.ReliableOrdered);
@@ -275,7 +275,7 @@ namespace NetworkedPlugins.API.Structs
             PacketProcessor.Send<ServerInteractPacket>(Peer,
                 new ServerInteractPacket()
                 {
-                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                     Type = (byte)ServerInteractionType.Broadcast,
                     Data = writer.Data,
                 }, DeliveryMethod.ReliableOrdered);
@@ -296,7 +296,7 @@ namespace NetworkedPlugins.API.Structs
             PacketProcessor.Send<ServerInteractPacket>(Peer,
                 new ServerInteractPacket()
                 {
-                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                     Type = (byte)ServerInteractionType.Hint,
                     Data = writer.Data,
                 }, DeliveryMethod.ReliableOrdered);
@@ -310,7 +310,7 @@ namespace NetworkedPlugins.API.Structs
             PacketProcessor.Send<ServerInteractPacket>(Peer,
                 new ServerInteractPacket()
                 {
-                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                     Type = (byte)ServerInteractionType.ClearBroadcast,
                     Data = new byte[0],
                 }, DeliveryMethod.ReliableOrdered);
@@ -327,7 +327,7 @@ namespace NetworkedPlugins.API.Structs
             PacketProcessor.Send<ServerInteractPacket>(Peer,
                 new ServerInteractPacket()
                 {
-                    AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                    AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                     Type = (byte)ServerInteractionType.Hint,
                     Data = writer.Data,
                 }, DeliveryMethod.ReliableOrdered);

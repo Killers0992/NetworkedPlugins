@@ -33,7 +33,7 @@ namespace NetworkedPlugins.API.Structs
         {
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.KillPlayer,
                 Data = new byte[0],
@@ -47,7 +47,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(message);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.ReportMessage,
                 Data = writer.Data 
@@ -62,7 +62,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(pluginName);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.RemoteAdminMessage,
                 Data = writer.Data 
@@ -78,7 +78,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(color);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.GameConsoleMessage,
                 Data = writer.Data 
@@ -92,7 +92,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(port);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Redirect,
                 Data = writer.Data 
@@ -106,7 +106,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(reason);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Disconnect,
                 Data = writer.Data 
@@ -121,7 +121,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(duration);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Hint,
                 Data = writer.Data
@@ -135,7 +135,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(state);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.SendPosition,
                 Data = writer.Data,
@@ -149,7 +149,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(state);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.SendRotation,
                 Data = writer.Data
@@ -165,7 +165,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(z);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Teleport,
                 Data = writer.Data
@@ -179,7 +179,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(state);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket()
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Godmode,
                 Data = writer.Data 
@@ -193,7 +193,7 @@ namespace NetworkedPlugins.API.Structs
             writer.Put(state);
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID,
                 Type = (byte)PlayerInteractionType.Noclip,
                 Data = writer.Data 
@@ -205,7 +205,7 @@ namespace NetworkedPlugins.API.Structs
         {
             Server.PacketProcessor.Send<PlayerInteractPacket>(Server.Peer, new PlayerInteractPacket() 
             {
-                AddonId = Assembly.GetExecutingAssembly().GetAddonId(),
+                AddonId = Assembly.GetCallingAssembly().GetAddonId(),
                 UserID = UserID, 
                 Type = (byte)PlayerInteractionType.ClearInventory,
                 Data = new byte[0], 

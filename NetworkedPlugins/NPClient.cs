@@ -643,7 +643,7 @@ namespace NetworkedPlugins
                     var message = reader.GetString();
                     var pluginName = reader.GetString();
 
-                    p.SendConsoleMessage($"[{pluginName}] {message}", reader.GetString());
+                    p.SendConsoleMessage($"{(!string.IsNullOrEmpty(pluginName) ? $"[{pluginName}] " : string.Empty)}{message}", reader.GetString());
                     break;
 
                 // Redirect

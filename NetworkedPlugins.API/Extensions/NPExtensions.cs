@@ -49,7 +49,7 @@ namespace NetworkedPlugins.API.Extensions
         {
             if (NPManager.Singleton.AddonAssemblies.TryGetValue(ass, out string id))
                 return id;
-            return "";
+            return "INVALID-ADDON";
         }
 
         public static void InvokeSafely<T>(this NPEventHandler.CustomEventHandler<T> ev, T arg)
