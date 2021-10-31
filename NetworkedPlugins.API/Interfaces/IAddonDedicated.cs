@@ -2,7 +2,7 @@ namespace NetworkedPlugins.API.Interfaces
 {
     using System;
     using System.Collections.Generic;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Enums;
     using NetworkedPlugins.API.Models;

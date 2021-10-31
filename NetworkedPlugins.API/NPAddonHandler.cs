@@ -1,6 +1,6 @@
 ﻿using NetworkedPlugins.API.Events.Player;
 using NetworkedPlugins.API.Interfaces;
-using NetworkedPlugins.API.Structs;
+using NetworkedPlugins.API.Models;
 using NetworkedPlugins.API.Extensions;
 using System;
 using System.Collections.Generic;

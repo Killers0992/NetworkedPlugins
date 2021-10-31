@@ -1,4 +1,4 @@
-﻿using NetworkedPlugins.API.Structs;
+﻿using NetworkedPlugins.API.Models;
 using System;
 
 namespace NetworkedPlugins.API.Events.Player

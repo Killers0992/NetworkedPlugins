@@ -4,7 +4,7 @@ namespace NetworkedPlugins
     using CommandSystem;
     using Exiled.API.Features;
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using Exiled.Permissions.Extensions;
     using LiteNetLib;
     using System.Linq;

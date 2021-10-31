@@ -1,6 +1,6 @@
 ﻿using NetworkedPlugins.API.Enums;
 
-namespace NetworkedPlugins.API.Structs
+namespace NetworkedPlugins.API.Models
 {
     public class NetworkedPlayerData
     {

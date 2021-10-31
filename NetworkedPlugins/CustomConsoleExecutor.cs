@@ -2,7 +2,7 @@ namespace NetworkedPlugins
 {
     using LiteNetLib;
     using NetworkedPlugins.API.Enums;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using UnityEngine;
 
     /// <summary>

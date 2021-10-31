@@ -2,7 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using LiteNetLib.Utils;
 
     /// <summary>

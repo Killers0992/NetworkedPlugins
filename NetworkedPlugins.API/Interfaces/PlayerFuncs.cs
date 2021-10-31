@@ -1,6 +1,6 @@
 namespace NetworkedPlugins.API.Interfaces
 {
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
 
     /// <summary>
     /// Player functions.

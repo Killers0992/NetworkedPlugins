@@ -11,7 +11,7 @@ namespace NetworkedPlugins.Dedicated
 
     using NetworkedPlugins.API;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
 
     using LiteNetLib;
     using LiteNetLib.Utils;

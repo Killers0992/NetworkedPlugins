@@ -3,7 +3,7 @@ namespace ExampleAddon.Commands
     using System.Collections.Generic;
     using NetworkedPlugins.API.Enums;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
 
     /// <inheritdoc/>
     public class TestCommand : ICommand

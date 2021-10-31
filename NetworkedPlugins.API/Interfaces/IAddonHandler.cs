@@ -1,5 +1,5 @@
 ﻿using NetworkedPlugins.API.Events.Player;
-using NetworkedPlugins.API.Structs;
+using NetworkedPlugins.API.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

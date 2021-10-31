@@ -1,7 +1,7 @@
 namespace NetworkedPlugins.API.Interfaces
 {
     using NetworkedPlugins.API.Enums;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using System.Collections.Generic;
 
     /// <summary>

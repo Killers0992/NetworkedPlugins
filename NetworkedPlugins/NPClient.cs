@@ -12,7 +12,7 @@ namespace NetworkedPlugins
     using Exiled.Events.EventArgs;
     using NetworkedPlugins.API;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using NetworkedPlugins.API.Extensions;
     using LiteNetLib;
     using LiteNetLib.Utils;

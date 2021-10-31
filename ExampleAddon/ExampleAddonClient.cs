@@ -3,7 +3,7 @@ namespace ExampleAddon
     using System;
     using System.Collections.Generic;
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using LiteNetLib.Utils;
     using MEC;
 

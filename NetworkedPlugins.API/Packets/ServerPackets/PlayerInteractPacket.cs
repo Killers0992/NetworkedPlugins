@@ -1,4 +1,4 @@
-namespace NetworkedPlugins.API.Structs
+namespace NetworkedPlugins.API.Models
 {
     /// <summary>
     /// Player interact packet.

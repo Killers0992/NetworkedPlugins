@@ -4,7 +4,7 @@ namespace NetworkedPlugins.API
     using System.Collections.Generic;
     using System.Linq;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using LiteNetLib;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Enums;

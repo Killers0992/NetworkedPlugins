@@ -6,7 +6,7 @@
     using NetworkedPlugins.API;
     using NetworkedPlugins.API.Enums;
     using NetworkedPlugins.API.Packets.ClientPackets;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using UnityEngine;
 
     public class NetworkedPlayer : MonoBehaviour

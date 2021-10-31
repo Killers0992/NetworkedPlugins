@@ -1,7 +1,6 @@
-namespace NetworkedPlugins.API.Structs
+namespace NetworkedPlugins.API.Models
 {
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
 
     using LiteNetLib;
     using LiteNetLib.Utils;

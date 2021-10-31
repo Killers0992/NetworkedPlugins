@@ -3,8 +3,8 @@ namespace NetworkedPlugins.API
     using System;
     using System.Collections.Generic;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
+    using NetworkedPlugins.API.Models;
     using LiteNetLib;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Packets;

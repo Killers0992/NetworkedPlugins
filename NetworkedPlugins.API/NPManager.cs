@@ -5,7 +5,7 @@ namespace NetworkedPlugins.API
     using LiteNetLib;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
+    using NetworkedPlugins.API.Models;
     using YamlDotNet.Serialization;
     using YamlDotNet.Serialization.NamingConventions;
     using NetworkedPlugins.API.Extensions;

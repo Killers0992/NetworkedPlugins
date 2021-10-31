@@ -1,4 +1,4 @@
-namespace NetworkedPlugins.API.Structs
+namespace NetworkedPlugins.API.Models
 {
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Enums;

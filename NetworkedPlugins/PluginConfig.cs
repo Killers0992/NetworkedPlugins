@@ -38,7 +38,7 @@ namespace NetworkedPlugins
         public NPPermissions Permissions { get; set; } = new NPPermissions()
         {
             ReceivePermissions = new List<AddonSendPermissionTypes>() { AddonSendPermissionTypes.None },
-            SendPermissions = new List<AddonReceivePermissionTypes>() { AddonReceivePermissionTypes.None }
+            SendPermissions = new List<AddonReceivePermissionTypes>() { AddonReceivePermissionTypes.RemoteAdminNewCommands, AddonReceivePermissionTypes.RemoteAdminMessages }
         };
     }
 }
