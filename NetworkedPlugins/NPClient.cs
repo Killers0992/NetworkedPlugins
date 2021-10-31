@@ -278,9 +278,28 @@ namespace NetworkedPlugins
             else
                 Logger.Info($"[Disconnected] Reason \"{disconnectInfo.Reason}\".");
 
-            foreach(var commandTypes in Commands)
+
+            foreach (var addon in Commands)
             {
-                foreach(var command in commandTypes.Value)
+                UnregisterCommandsFromAddon(addon.Key);
+            }
+
+            Commands.Clear();
+            Commands.Clear();
+
+            foreach(var player in Players.Values)
+                player.NetworkData.IsConnected = false;
+            Timing.RunCoroutine(Reconnect());
+        }
+
+        public bool UnregisterCommandsFromAddon(string addonId)
+        {
+            if (!Commands.ContainsKey(addonId))
+                return false;
+
+            foreach (var commandTypes in Commands[addonId])
+            {
+                foreach (var command in commandTypes.Value)
                 {
                     switch (commandTypes.Key)
                     {
@@ -294,13 +313,7 @@ namespace NetworkedPlugins
                     Logger.Info($"Command {command.Value.Command} unregistered from addon.");
                 }
             }
-
-            Commands[CommandType.GameConsole].Clear();
-            Commands[CommandType.RemoteAdmin].Clear();
-
-            foreach(var player in Players.Values)
-                player.NetworkData.IsConnected = false;
-            Timing.RunCoroutine(Reconnect());
+            return true;
         }
 
         /// <inheritdoc/>
@@ -367,11 +380,31 @@ namespace NetworkedPlugins
             PacketProcessor.SubscribeReusable<SendAddonsInfoPacket, NetPeer>(OnReceiveAddons);
             PacketProcessor.SubscribeReusable<EventPacket, NetPeer>(OnReceiveEvent);
             PacketProcessor.SubscribeReusable<AddonDataPacket, NetPeer>(OnReceiveAddonData);
+            PacketProcessor.SubscribeReusable<UnloadAddonPacket, NetPeer>(OnUnloadAddons);
             NetworkListener = new NetManager(this);
             NetworkListener.Start();
             CreateDefaultConnectionData();
             NetworkListener.Connect(plugin.Config.HostAddress, plugin.Config.HostPort, defaultdata);
             refreshPolls = Timing.RunCoroutine(RefreshPolls());
+        }
+
+        private void OnUnloadAddons(UnloadAddonPacket packet, NetPeer peer)
+        {
+            foreach(var addon in packet.AddonIds)
+            {
+                if (!InstalledAddons.TryGetValue(addon, out AddonInfo aInfo))
+                    continue;
+
+                UnregisterCommandsFromAddon(addon);
+                if (ClientAddons.TryGetValue(addon, out IAddonClient<IConfig> cAddon))
+                {
+                    cAddon.OnDisable();
+                }
+                {
+                    Logger.Info($"Disabled RemoteAddon \"{aInfo.AddonName}\" ({aInfo.AddonVersion}) made by {aInfo.AddonAuthor}");
+                }
+                InstalledAddons.Remove(addon);
+            }
         }
 
         private void OnServerInteract(ServerInteractPacket packet, NetPeer peer)
@@ -590,11 +623,11 @@ namespace NetworkedPlugins
             Player p = (packet.UserID == "SERVER CONSOLE" || packet.UserID == "GAME CONSOLE") ? Player.Get(PlayerManager.localPlayer) : Player.Get(packet.UserID);
             if (p == null)
             {
-                Logger.Info($"Player not found {packet.UserID}, action: {packet.Type}.");
+                Logger.Info($"Player not found {packet.UserID}, action: {interactionType}.");
                 return;
             }
 
-            switch ((PlayerInteractionType)packet.Type)
+            switch (interactionType)
             {
                 // Kill player
                 case PlayerInteractionType.KillPlayer:
@@ -738,11 +771,7 @@ namespace NetworkedPlugins
             }
         }
 
-        private Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>> Commands = new Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>()
-        {
-            { CommandType.GameConsole, new Dictionary<string, CommandSystem.ICommand>() },
-            { CommandType.RemoteAdmin, new Dictionary<string, CommandSystem.ICommand>() },
-        };
+        private Dictionary<string, Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>> Commands = new Dictionary<string, Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>>();
 
         private void OnReceiveCommandsData(ReceiveCommandsPacket packet, NetPeer peer)
         {
@@ -780,7 +809,14 @@ namespace NetworkedPlugins
                 command.Permission = pCmd.Permission;
                 command.Type = pCmd.Type;
 
-                Commands[commandType].Add(pCmd.CommandName.ToUpper(), command);
+                if (!Commands.ContainsKey(pCmd.AddonID))
+                    Commands.Add(pCmd.AddonID, new Dictionary<CommandType, Dictionary<string, CommandSystem.ICommand>>());
+
+                if (!Commands[pCmd.AddonID].ContainsKey(commandType))
+                    Commands[pCmd.AddonID].Add(commandType, new Dictionary<string, CommandSystem.ICommand>());
+
+                if (!Commands[pCmd.AddonID][commandType].ContainsKey(pCmd.CommandName.ToUpper()))
+                    Commands[pCmd.AddonID][commandType].Add(pCmd.CommandName.ToUpper(), command);
 
                 switch (commandType)
                 {

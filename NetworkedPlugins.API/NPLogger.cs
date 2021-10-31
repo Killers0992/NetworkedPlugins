@@ -15,7 +15,7 @@ namespace NetworkedPlugins.API
         /// Sends a Error level messages to the game console.
         /// This should be used to send errors only.
         /// It's recommended to send any messages in the catch block of a try/catch as errors with the exception string.
-        /// </summary>
+        /// </summary>                                   
         /// <param name="message">The message to be sent.</param>
         public abstract void Error(string message);
 

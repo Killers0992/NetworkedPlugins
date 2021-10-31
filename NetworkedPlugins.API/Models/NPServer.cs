@@ -3,7 +3,6 @@ namespace NetworkedPlugins.API.Structs
     using System.Collections.Generic;
 
     using NetworkedPlugins.API.Interfaces;
-    using NetworkedPlugins.API.Structs;
     using LiteNetLib;
     using LiteNetLib.Utils;
     using NetworkedPlugins.API.Packets.ServerPackets;
@@ -164,6 +163,52 @@ namespace NetworkedPlugins.API.Structs
                     SendPermissions = p.Permissions.ReceivePermissions.Select(p2 => (byte)p2).ToArray(),
                     RemoteConfig = Encoding.UTF8.GetBytes(NPManager.Serializer.Serialize(p.RemoteConfig))
                 }).ToList()
+            }, DeliveryMethod.ReliableOrdered);
+        }
+
+        public void LoadAddon(string id)
+        {
+            var addon = NPManager.Singleton.DedicatedAddonHandlers.Values.FirstOrDefault(p => p.DefaultAddon.AddonId == id);
+            if (addon == null)
+                return;
+
+            addon.AddAddon(this);
+
+            PacketProcessor.Send<SendAddonsInfoPacket>(Peer, new SendAddonsInfoPacket()
+            {
+                Addons = new List<Packets.AddonInfo> 
+                { 
+                    new Packets.AddonInfo()
+                    {
+                        AddonId = addon.DefaultAddon.AddonId,
+                        AddonAuthor = addon.DefaultAddon.AddonAuthor,
+                        AddonName = addon.DefaultAddon.AddonName,
+                        AddonVersion = addon.DefaultAddon.AddonVersion.ToString(3),
+                        ReceivePermissions = addon.DefaultAddon.Permissions.SendPermissions.Select(p2 => (byte)p2).ToArray(),
+                        SendPermissions = addon.DefaultAddon.Permissions.ReceivePermissions.Select(p2 => (byte)p2).ToArray(),
+                        RemoteConfig = Encoding.UTF8.GetBytes(NPManager.Serializer.Serialize(addon.DefaultAddon.RemoteConfig))
+                    }
+                }
+            }, DeliveryMethod.ReliableOrdered);
+        }
+
+        public void UnloadAddon(string id)
+        {
+            if (!ServerConfig.InstalledAddons.Contains(id))
+                return;
+
+            if (NPManager.Singleton.DedicatedAddonHandlers.TryGetValue(id, out IAddonHandler<IConfig> handler))
+            {
+                if (handler.AddonInstances.ContainsKey(this))
+                {
+                    handler.AddonInstances[this].OnDisable();
+                    handler.AddonInstances.Remove(this);
+                }
+            }
+
+            PacketProcessor.Send<UnloadAddonPacket>(Peer, new UnloadAddonPacket()
+            {
+                AddonIds = new string[] { id }
             }, DeliveryMethod.ReliableOrdered);
         }
 
