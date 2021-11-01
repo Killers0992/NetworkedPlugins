@@ -40,7 +40,7 @@ namespace NetworkedPlugins
         private NetDataWriter defaultdata;
         private string tokenPath;
         private string remoteConfigsPath;
-        private bool isDownloading;
+        private bool isDownloading;      
         private DateTime nextUpdate = DateTime.Now;
         private Dictionary<string, AddonInfo> InstalledAddons { get; } = new Dictionary<string, AddonInfo>();
 
@@ -241,7 +241,6 @@ namespace NetworkedPlugins
                         break;
                 }
             }
-            isDownloading = false;
         }
 
         /// <inheritdoc/>
