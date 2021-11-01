@@ -13,18 +13,12 @@ Connect SL servers and send data between them.
 4. Put [example addon](github.com/Killers0992/NetworkedPlugins/releases/latest/download/ExampleAddon.dll) in ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
 
 5. How host?
-- If you have more than 1 SL server you can use [that](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-sl-server-to-host).
 - If you have way hosting dedicated app use [this](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-dedicated-app-to-host).
 
 6. How connect?
 
-- ``IsHost`` this time is set to ``false`` and you need to use same ``host_connection_key`` from Host server or DedicatedApp to properly connect to that server,
+- You need to use same ``host_connection_key`` from DedicatedApp to properly connect to that server,
 also you need to have same ``host_port``.
-
-# USING SL SERVER TO HOST
-
-- Server must have in config IsHost set to true
-( That means that server will be handling everything )
 
 # USING Dedicated APP to HOST
 
@@ -46,7 +40,7 @@ If your host server and server which connects is on localhost you dont need to c
 [LINK](https://github.com/Killers0992/NetworkedPlugins/tree/master/ExampleAddon)
 
 Addon classes are seperated soo addons can run without SL Server and with,
-if you will use SL/Exiled methods in class which inherits NPAddonDedicated then that will not work, you need to inherit NPAddonClient or NPAddonHost
+if you will use SL/Exiled methods in class which inherits NPAddonDedicated then that will not work, you need to inherit NPAddonClient or NPAddonDedicated
 
 
 Which things can be done with that?
