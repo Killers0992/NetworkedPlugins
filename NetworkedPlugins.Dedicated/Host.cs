@@ -344,6 +344,22 @@ namespace NetworkedPlugins.Dedicated
                         server.PlayersDictionary.Remove(userId);
                     }
                     break;
+                case EventType.PlayerLocalReport:
+                    {
+                        string userId = data.GetString();
+                        string targetUserId = data.GetString();
+                        string reason = data.GetString();
+
+                        if (!server.PlayersDictionary.TryGetValue(userId, out NPPlayer plr))
+                            break;
+
+                        if (!server.PlayersDictionary.TryGetValue(targetUserId, out NPPlayer target))
+                            break;
+
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokePlayerLocalReport(new PlayerLocalReportEvent(plr, target, reason), server);
+                    }
+                    break;
             }
         }
 
