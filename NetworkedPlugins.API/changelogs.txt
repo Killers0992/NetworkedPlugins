@@ -1,1 +1,2 @@
-﻿- Update NP.
+﻿- Add Player Local Reporting event.
+- Fix unregister of comamnds.
