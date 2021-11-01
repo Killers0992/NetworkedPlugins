@@ -23,14 +23,8 @@ namespace NetworkedPlugins.API
 
         public void AddAddon(NPServer targetServer)
         {
-            if (AddonInstances.ContainsKey(targetServer))
-                return;
-
-            AddonInstances.Add(targetServer, DefaultAddon);
-
-            if (!AddonInstances.TryGetValue(targetServer, out IAddonDedicated<IConfig, IConfig> addon))
-                return;
-
+            
+            var addon = (IAddonDedicated<IConfig, IConfig>)Activator.CreateInstance(DefaultAddon.GetType());
             var property = addon.GetType().GetProperty("Server", BindingFlags.Public | BindingFlags.Instance);
             var field = property.GetBackingField();
             field.SetValue(addon, targetServer);
@@ -42,6 +36,28 @@ namespace NetworkedPlugins.API
             property = addon.GetType().GetProperty("Handler", BindingFlags.Public | BindingFlags.Instance);
             field = property.GetBackingField();
             field.SetValue(addon, this);
+
+            property = addon.GetType().GetProperty("DefaultPath", BindingFlags.Public | BindingFlags.Instance);
+            field = property.GetBackingField();
+            field.SetValue(addon, DefaultAddon.DefaultPath);
+
+            property = addon.GetType().GetProperty("AddonPath", BindingFlags.Public | BindingFlags.Instance);
+            field = property.GetBackingField();
+            field.SetValue(addon, DefaultAddon.AddonPath);
+
+            property = addon.GetType().GetProperty("Manager", BindingFlags.Public | BindingFlags.Instance);
+            field = property.GetBackingField();
+            field.SetValue(addon, DefaultAddon.Manager);
+
+            property = addon.GetType().GetProperty("Logger", BindingFlags.Public | BindingFlags.Instance);
+            field = property.GetBackingField();
+            field.SetValue(addon, DefaultAddon.Logger);
+
+            property = addon.GetType().GetProperty("Commands", BindingFlags.Public | BindingFlags.Instance);
+            field = property.GetBackingField();
+            field.SetValue(addon, DefaultAddon.Commands);
+
+            AddonInstances.Add(targetServer, addon);
         }
 
         public TConfig Config { get; }

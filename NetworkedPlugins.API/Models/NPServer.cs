@@ -38,10 +38,19 @@ namespace NetworkedPlugins.API.Models
         public NetworkServerConfig ServerConfig { get; set; }
         public string ServerDirectory { get; set; }
 
-        public IEnumerable<IAddonDedicated<IConfig, IConfig>> AddonInstances =>
-            NPManager.Singleton.DedicatedAddonHandlers
-            .Where(p => p.Value.AddonInstances.ContainsKey(this))
-            .Select(p => p.Value.AddonInstances[this]);
+        public IEnumerable<IAddonDedicated<IConfig, IConfig>> AddonInstances
+        {
+            get
+            {
+                List<IAddonDedicated<IConfig, IConfig>> addons = new List<IAddonDedicated<IConfig, IConfig>>();
+                foreach(var handler in NPManager.Singleton.DedicatedAddonHandlers.Values)
+                {
+                    if (handler.AddonInstances.TryGetValue(this, out IAddonDedicated<IConfig, IConfig> addon))
+                        addons.Add(addon);
+                }
+                return addons;
+            }
+        }
 
         public IAddonDedicated<IConfig, IConfig> GetAddon(string addonId)
         {
