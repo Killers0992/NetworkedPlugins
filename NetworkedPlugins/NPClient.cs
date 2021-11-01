@@ -302,7 +302,6 @@ namespace NetworkedPlugins
                     Logger.Info($"[{command.Key}] Command \"{command.Value.Command}\" unregistered in addon \"{addonInfo.AddonName}\".");
                 }
             }
-            Commands.Remove(addonId);
             return true;
         }
 
@@ -374,7 +373,8 @@ namespace NetworkedPlugins
                 if (!InstalledAddons.TryGetValue(addon, out AddonInfo aInfo))
                     continue;
 
-                UnregisterCommandsFromAddon(addon);
+                if (UnregisterCommandsFromAddon(addon))
+                    Commands.Remove(addon);
                 if (ClientAddons.TryGetValue(addon, out IAddonClient<IConfig> cAddon))
                 {
                     cAddon.OnDisable();
