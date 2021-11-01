@@ -534,12 +534,16 @@ namespace NetworkedPlugins
 
                 foreach(var missingval in receivedConfig.Except(loadedConfig))
                 {
+                    if (loadedConfig.ContainsKey(missingval.Key))
+                        continue;
                     loadedConfig.Add(missingval.Key, missingval.Value);
                     Logger.Info($"Added missing config parameter \"{missingval.Key}\" in addon \"{addon.AddonName}\"!");
                 }
 
                 foreach (var removeval in loadedConfig.Except(receivedConfig))
                 {
+                    if (!loadedConfig.ContainsKey(removeval.Key))
+                        continue;
                     loadedConfig.Remove(removeval.Key);
                     Logger.Info($"Removed not existing config parameter \"{removeval.Key}\" in addon \"{addon.AddonName}\"!");
                 }
