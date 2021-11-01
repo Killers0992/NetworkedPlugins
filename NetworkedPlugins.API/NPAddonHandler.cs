@@ -104,5 +104,16 @@ namespace NetworkedPlugins.API
 
             addon.InvokePlayerLeft(ev);
         }
+
+        public CustomEventHandler<PlayerLocalReportEvent> PlayerLocalReport { get; set; }
+        public void InvokePlayerLocalReport(PlayerLocalReportEvent ev, NPServer server)
+        {
+            PlayerLocalReport.InvokeSafely(ev);
+
+            if (!AddonInstances.TryGetValue(server, out IAddonDedicated<IConfig, IConfig> addon))
+                return;
+
+            addon.InvokePlayerLocalReport(ev);
+        }
     }
 }

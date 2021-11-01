@@ -10,5 +10,6 @@ namespace NetworkedPlugins.API.Enums
     {
         PlayerJoined,
         PlayerLeft,
+        PlayerLocalReport,
     }
 }

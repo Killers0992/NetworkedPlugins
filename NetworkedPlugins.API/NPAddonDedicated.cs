@@ -143,5 +143,8 @@ namespace NetworkedPlugins.API
 
         public CustomEventHandler<PlayerLeftEvent> PlayerLeft { get; set; }
         public void InvokePlayerLeft(PlayerLeftEvent ev) => PlayerLeft.InvokeSafely(ev);
+
+        public CustomEventHandler<PlayerLocalReportEvent> PlayerLocalReport { get; set; }
+        public void InvokePlayerLocalReport(PlayerLocalReportEvent ev) => PlayerLocalReport.InvokeSafely(ev);
     }
 }

@@ -33,9 +33,10 @@ namespace NetworkedPlugins
     public class NPClient : NPManager, INetEventListener
     {
         private MainClass plugin;
+        private EventHandlers eventHandlers;
 
         private CoroutineHandle refreshPolls;
-        private Dictionary<string, NetworkedPlayer> Players = new Dictionary<string, NetworkedPlayer>();
+        internal Dictionary<string, NetworkedPlayer> Players = new Dictionary<string, NetworkedPlayer>();
         private NetDataWriter defaultdata;
         private string tokenPath;
         private string remoteConfigsPath;
@@ -130,9 +131,7 @@ namespace NetworkedPlugins
                 }
             }
             Logger.Info($"Starting CLIENT network...");
-            Exiled.Events.Handlers.Player.Verified += Player_Verified;
-            Exiled.Events.Handlers.Player.Destroying += Player_Destroying;
-            Exiled.Events.Handlers.Server.WaitingForPlayers += Server_WaitingForPlayers;
+            eventHandlers = new EventHandlers(this);
         }
 
         public void CreateDefaultConnectionData()
@@ -155,15 +154,6 @@ namespace NetworkedPlugins
             }
         }
 
-        private void Player_Destroying(DestroyingEventArgs ev)
-        {
-            if (Players.TryGetValue(ev.Player.UserId, out NetworkedPlayer plr))
-            {
-                UnityEngine.Object.Destroy(plr);
-                Players.Remove(ev.Player.UserId);
-            }
-        }
-
         /// <summary>
         /// Unload network client.
         /// </summary>
@@ -172,9 +162,8 @@ namespace NetworkedPlugins
             if (refreshPolls != null)
                 Timing.KillCoroutines(refreshPolls);
 
-            Exiled.Events.Handlers.Player.Destroying -= Player_Destroying;
-            Exiled.Events.Handlers.Player.Verified -= Player_Verified;
-            Exiled.Events.Handlers.Server.WaitingForPlayers -= Server_WaitingForPlayers;
+            eventHandlers.UnregisterEvents();
+            eventHandlers = null;
         }
 
         /// <inheritdoc/>
@@ -280,12 +269,10 @@ namespace NetworkedPlugins
 
 
             foreach (var addon in Commands)
-            {
                 UnregisterCommandsFromAddon(addon.Key);
-            }
 
             Commands.Clear();
-            Commands.Clear();
+            InstalledAddons.Clear();
 
             foreach(var player in Players.Values)
                 player.NetworkData.IsConnected = false;
@@ -294,6 +281,9 @@ namespace NetworkedPlugins
 
         public bool UnregisterCommandsFromAddon(string addonId)
         {
+            if (!InstalledAddons.TryGetValue(addonId, out AddonInfo addonInfo))
+                return false;
+
             if (!Commands.ContainsKey(addonId))
                 return false;
 
@@ -310,9 +300,10 @@ namespace NetworkedPlugins
                             QueryProcessor.DotCommandHandler.UnregisterCommand(command.Value);
                             break;
                     }
-                    Logger.Info($"Command {command.Value.Command} unregistered from addon.");
+                    Logger.Info($"[{command.Key}] Command \"{command.Value.Command}\" unregistered in addon \"{addonInfo.AddonName}\".");
                 }
             }
+            Commands.Remove(addonId);
             return true;
         }
 
@@ -355,18 +346,7 @@ namespace NetworkedPlugins
             return (invokeClass.FullName.GetStableHashCode() * 503) + methodName.GetStableHashCode();
         }
 
-        private void Server_WaitingForPlayers()
-        {
-            if (NetworkListener == null)
-                StartNetworkClient();
-        }
-
-        private void Player_Verified(VerifiedEventArgs ev)
-        {
-            Players.Add(ev.Player.UserId, ev.Player.GameObject.AddComponent<NetworkedPlayer>());
-        }
-
-        private void StartNetworkClient()
+        internal void StartNetworkClient()
         {
             PacketProcessor.RegisterNestedType<CommandInfo>();
             PacketProcessor.RegisterNestedType<PlayerInfo>();

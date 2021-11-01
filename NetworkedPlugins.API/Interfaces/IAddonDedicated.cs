@@ -123,5 +123,8 @@ namespace NetworkedPlugins.API.Interfaces
 
         CustomEventHandler<PlayerLeftEvent> PlayerLeft { get; set; }
         void InvokePlayerLeft(PlayerLeftEvent ev);
+
+        CustomEventHandler<PlayerLocalReportEvent> PlayerLocalReport { get; set; }
+        void InvokePlayerLocalReport(PlayerLocalReportEvent ev);
     }
 }
