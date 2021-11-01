@@ -257,6 +257,13 @@ namespace NetworkedPlugins.Dedicated
             if (!request.Data.TryGetBytesWithLength(out byte[] token))
                 return;
 
+            if (Servers.Values.FirstOrDefault(p => p.ServerAddress == request.RemoteEndPoint.Address.ToString() && p.ServerPort == port) != null)
+            {
+                Logger.Error($"Server with ip \"{request.RemoteEndPoint.Address.ToString()}\" and port \"{port}\" is already connected. (Multiple ips on machine)");
+                request.Reject();
+                return;
+            }
+
             var server = new NPServer(PacketProcessor, request.RemoteEndPoint.Address.ToString(), port, maxplayers);
 
             var Addons = addons.ToList();
@@ -273,6 +280,7 @@ namespace NetworkedPlugins.Dedicated
             {
                 Logger.Error($"Failed loading addons for server \"{server.FullAddress}\".\n{ex}");
             }
+
 
             Servers.Add(server.Peer, server);
             Logger.Info($"New server connected \"{server.FullAddress}\".");

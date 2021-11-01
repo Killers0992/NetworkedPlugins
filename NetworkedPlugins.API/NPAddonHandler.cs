@@ -23,6 +23,9 @@ namespace NetworkedPlugins.API
 
         public void AddAddon(NPServer targetServer)
         {
+            if (AddonInstances.ContainsKey(targetServer))
+                return;
+
             AddonInstances.Add(targetServer, DefaultAddon);
 
             if (!AddonInstances.TryGetValue(targetServer, out IAddonDedicated<IConfig, IConfig> addon))
