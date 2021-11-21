@@ -320,6 +320,7 @@ namespace NetworkedPlugins.Dedicated
                 case EventType.PlayerJoined:
                     {
                         string userId = data.GetString();
+                        string nickname = data.GetString();
                         var newPlayer = new NPPlayer(server, userId);
 
                         if (server.PlayersDictionary.ContainsKey(userId))

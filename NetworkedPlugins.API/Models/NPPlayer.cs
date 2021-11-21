@@ -16,10 +16,11 @@ namespace NetworkedPlugins.API.Models
         /// </summary>
         /// <param name="server">Server where player is on.</param>
         /// <param name="userID">Player UserID.</param>
-        public NPPlayer(NPServer server, string userID)
+        public NPPlayer(NPServer server, string userID, string nickName = "Unknown Nickname")
         {
             this.UserID = userID;
             this.Server = server;
+            this.Nickname = nickName;
         }
 
         /// <summary>

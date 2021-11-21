@@ -51,6 +51,7 @@
             NetworkData = new NetworkedPlayerData();
             NetDataWriter writer = new NetDataWriter();
             writer.Put(Player.UserId);
+            writer.Put(Player.Nickname);
             NPManager.Singleton.PacketProcessor.Send<EventPacket>(
                 NPManager.Singleton.NetworkListener,
                 new EventPacket()

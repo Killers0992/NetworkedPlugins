@@ -1,1 +1,1 @@
-﻿- Fix autoupdater.
+﻿- Fix join nickname.
