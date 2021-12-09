@@ -26,6 +26,8 @@ namespace NetworkedPlugins
     using NetworkedPlugins.API.Packets.ServerPackets;
     using System.Text;
     using NetworkedPlugins.API.Packets.ClientPackets;
+    using PlayerStatsSystem;
+    using RoundRestarting;
 
     /// <summary>
     /// Network client.
@@ -224,14 +226,14 @@ namespace NetworkedPlugins
                     case UpdateAction.RestartNow:
                         Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, restarting server.");
                         ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
-                        PlayerStats.StaticChangeLevel(true);
+                        RoundRestart.InitiateRoundRestart();
                         break;
                     case UpdateAction.RestartNowIfEmpty:
                         if (Player.List.Count() == 0 || !Round.IsStarted)
                         {
                             Logger.Info($"Downloaded update \"{ver}\" of NetworkedPlugins, restarting server.");
                             ServerStatic.StopNextRound = ServerStatic.NextRoundAction.Restart;
-                            PlayerStats.StaticChangeLevel(true);
+                            RoundRestart.InitiateRoundRestart();
                         }
                         else
                         {
@@ -477,9 +479,12 @@ namespace NetworkedPlugins
                         var port = reader.GetUShort();
 
                         if (port != 0)
-                            ReferenceHub.HostHub.playerStats.RpcRoundrestartRedirect(0f, port);
+                        {
+                            NetworkServer.SendToAll<RoundRestartMessage>(new RoundRestartMessage(RoundRestartType.FullRestart, 0f, port, true), 0, false);
+                            RoundRestarting.RoundRestart.InitiateRoundRestart();
+                        }
                         else
-                            ReferenceHub.HostHub.playerStats.Roundrestart();
+                            RoundRestarting.RoundRestart.InitiateRoundRestart();
                     }
                     break;
             }
@@ -613,7 +618,7 @@ namespace NetworkedPlugins
                         break;
                     }
 
-                    p.Kill();
+                    p.Kill("Force");
                     break;
 
                 // Report message
