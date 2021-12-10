@@ -10,7 +10,7 @@ namespace NetworkedPlugins.API.Models
     {
         public string LinkToken { get; set; }
         public string Token { get; set; }
-        public string ServerName { get; set; }
+        public string ServerName { get; set; } = "Default Name";
         public List<string> InstalledAddons { get; set; } = new List<string>();
     }
 }

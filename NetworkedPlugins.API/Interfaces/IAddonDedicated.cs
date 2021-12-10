@@ -19,6 +19,8 @@ namespace NetworkedPlugins.API.Interfaces
         IAddonHandler<IConfig> Handler { get; }
 
         NPPermissions Permissions { get; }
+        IEnumerable<NPServer> GetServers();
+        IEnumerable<NPServer> GetAllServers();
 
         /// <summary>
         /// Gets server connected.

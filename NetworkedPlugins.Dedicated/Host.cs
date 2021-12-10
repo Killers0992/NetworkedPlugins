@@ -321,7 +321,7 @@ namespace NetworkedPlugins.Dedicated
                     {
                         string userId = data.GetString();
                         string nickname = data.GetString();
-                        var newPlayer = new NPPlayer(server, userId);
+                        var newPlayer = new NPPlayer(server, userId, nickname);
 
                         if (server.PlayersDictionary.ContainsKey(userId))
                             break;

@@ -4,7 +4,6 @@ namespace ExampleAddon
     using System.Collections.Generic;
 
     using NetworkedPlugins.API;
-    using NetworkedPlugins.API.Models;
 
     using LiteNetLib.Utils;
 

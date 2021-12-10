@@ -57,7 +57,17 @@ namespace NetworkedPlugins.API.Models
             if (NPManager.Singleton.DedicatedAddonHandlers.TryGetValue(addonId, out IAddonHandler<IConfig> handler))
                 if (handler.AddonInstances.TryGetValue(this, out IAddonDedicated<IConfig, IConfig> addon))
                     return addon;
+
             return null;
+        }
+
+        public T GetAddon<T>(string addonId) where T : IAddonDedicated<IConfig, IConfig>
+        {
+            if (NPManager.Singleton.DedicatedAddonHandlers.TryGetValue(addonId, out IAddonHandler<IConfig> handler))
+                if (handler.AddonInstances.TryGetValue(this, out IAddonDedicated<IConfig, IConfig> addon))
+                    return (T)addon;       
+
+            return default(T);
         }
 
         public void LoadServerConfig()
@@ -89,6 +99,9 @@ namespace NetworkedPlugins.API.Models
 
         public void UpdateName()
         {
+            if (string.IsNullOrEmpty(ServerConfig.ServerName))
+                return;
+
             var property = this.GetType().GetProperty("ServerName", BindingFlags.Public | BindingFlags.Instance);
             var field = property.GetBackingField();
             field.SetValue(this, ServerConfig.ServerName);

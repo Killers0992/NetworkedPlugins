@@ -27,7 +27,17 @@ namespace NetworkedPlugins.API
 
         public IEnumerable<NPServer> GetServers()
         {
-            return NPManager.Singleton.Servers.Values.Where(p => p.ServerConfig.LinkToken == Server.ServerConfig.LinkToken);
+            return NPManager.Singleton.Servers.Values.
+                Where(p =>
+                p.GetAddon(this.AddonId) != null &&
+                p.ServerConfig.LinkToken == Server.ServerConfig.LinkToken);
+        }
+
+        public IEnumerable<NPServer> GetAllServers()
+        {
+            return NPManager.Singleton.Servers.Values.
+                Where(p =>
+                p.GetAddon(this.AddonId) != null);
         }
 
         /// <inheritdoc/>
