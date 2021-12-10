@@ -10,12 +10,10 @@ Connect SL servers and send data between them.
 
 3. Start server and wait when plugin generates ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
 
-4. Put [example addon](github.com/Killers0992/NetworkedPlugins/releases/latest/download/ExampleAddon.dll) in ``Exiled/Plugins/NetworkedPlugins/addons-<serverPort>``.
-
-5. How host?
+4. How host?
 - If you have way hosting dedicated app use [this](https://github.com/Killers0992/NetworkedPlugins/tree/master#using-dedicated-app-to-host).
 
-6. How connect?
+5. How connect?
 
 - You need to use same ``host_connection_key`` from DedicatedApp to properly connect to that server,
 also you need to have same ``host_port``.
