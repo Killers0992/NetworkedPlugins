@@ -36,8 +36,7 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnEnabled()
         {
-            LastId = $"networkedplugins.{DateTime.Now.Ticks}";
-            harmony = new Harmony(LastId);
+            harmony = new Harmony($"networkedplugins.{DateTime.Now.Ticks}");
             harmony.PatchAll();
 
             Singleton = this;
@@ -48,7 +47,7 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnDisabled()
         {
-            harmony.UnpatchAll(LastId);
+            harmony.UnpatchAll(harmony.Id);
             harmony = null;
 
             Singleton = null;
