@@ -76,6 +76,20 @@
                 DeliveryMethod.ReliableOrdered);
         }
 
+
+        public void SendPacket(NetDataWriter writer, Player plr, PlayerDataType dataType)
+        {
+            NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
+                NPManager.Singleton.NetworkListener,
+                new UpdatePlayerInfoPacket()
+                {
+                    UserID = plr.UserId,
+                    Type = (byte)dataType,
+                    Data = writer.Data
+                },
+                DeliveryMethod.ReliableOrdered);
+        }
+
         void Update()
         {
             if (!NetworkData.IsConnected)
@@ -87,15 +101,7 @@
                 NetworkData.Nickname = Player.Nickname;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.Nickname);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener, 
-                    new UpdatePlayerInfoPacket() 
-                    { 
-                        UserID = Player.UserId, 
-                        Type = (byte)PlayerDataType.Nickname, 
-                        Data = writer.Data 
-                    }, 
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Nickname);
             }
 
             if (NetworkData.Role != (PlayerRole)Player.Role && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerRole))
@@ -103,15 +109,7 @@
                 NetworkData.Role = (PlayerRole)Player.Role;
                 writer = new NetDataWriter();
                 writer.Put((sbyte)NetworkData.Role);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.Role,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Role);
             }
 
             if (NetworkData.DoNotTrack != Player.DoNotTrack && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerDoNotTrack))
@@ -119,15 +117,7 @@
                 NetworkData.DoNotTrack = Player.DoNotTrack;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.DoNotTrack);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.DoNotTrack,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.DoNotTrack);
             }
 
             if (NetworkData.RemoteAdminAccess != Player.RemoteAdminAccess && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerRemoteAdminAccess))
@@ -135,15 +125,7 @@
                 NetworkData.RemoteAdminAccess = Player.RemoteAdminAccess;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.RemoteAdminAccess);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.RemoteAdminAccess,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.RemoteAdminAccess);
             }
 
             if (NetworkData.IsOverwatchEnabled != Player.IsOverwatchEnabled && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerOverwatch))
@@ -151,15 +133,7 @@
                 NetworkData.IsOverwatchEnabled = Player.IsOverwatchEnabled;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.IsOverwatchEnabled);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.Overwatch,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Overwatch);
             }
 
             if (NetworkData.IPAddress != Player.IPAddress && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerIPAddress))
@@ -167,15 +141,7 @@
                 NetworkData.IPAddress = Player.IPAddress;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.IsOverwatchEnabled);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.IPAddress,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.IPAddress);
             }
 
             if (NetworkData.IsMuted != Player.IsMuted && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerMute))
@@ -183,15 +149,7 @@
                 NetworkData.IsMuted = Player.IsMuted;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.IsMuted);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.Mute,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Mute);
             }
 
             if (NetworkData.IsIntercomMuted != Player.IsIntercomMuted)
@@ -199,15 +157,7 @@
                 NetworkData.IsIntercomMuted = Player.IsIntercomMuted;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.IsIntercomMuted);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.IntercomMute,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.IntercomMute);
             }
 
             if (NetworkData.IsGodModeEnabled != Player.IsGodModeEnabled && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerGodmode))
@@ -215,15 +165,7 @@
                 NetworkData.IsGodModeEnabled = Player.IsGodModeEnabled;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.IsGodModeEnabled);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.Godmode,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Godmode);
             }
 
             if (NetworkData.Health != Player.Health && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerHealth))
@@ -231,15 +173,7 @@
                 NetworkData.Health = Player.Health;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.Health);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.Health,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.Health);
             }
 
             if (NetworkData.MaxHealth != Player.MaxHealth && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerMaxHealth))
@@ -247,15 +181,7 @@
                 NetworkData.MaxHealth = Player.MaxHealth;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.MaxHealth);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.MaxHealth,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.MaxHealth);
             }
 
             if (NetworkData.GroupName != Player.GroupName && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerGroupName))
@@ -263,15 +189,7 @@
                 NetworkData.GroupName = Player.GroupName;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.GroupName);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.GroupName,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.GroupName);
             }
 
             if (NetworkData.RankColor != Player.RankColor && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerRankColor))
@@ -279,15 +197,7 @@
                 NetworkData.RankColor = Player.RankColor;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.RankColor);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.RankColor,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.RankColor);
             }
 
             if (NetworkData.RankName != Player.RankName && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerRankColor))
@@ -295,15 +205,7 @@
                 NetworkData.RankName = Player.RankName;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.RankName);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.RankName,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.RankName);
             }
 
             if (NetworkData.PlayerID != Player.Id && Extensions.CheckReceivePermission(AddonSendPermissionTypes.PlayerPlayerID))
@@ -311,15 +213,7 @@
                 NetworkData.PlayerID = Player.Id;
                 writer = new NetDataWriter();
                 writer.Put(NetworkData.PlayerID);
-                NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                    NPManager.Singleton.NetworkListener,
-                    new UpdatePlayerInfoPacket()
-                    {
-                        UserID = Player.UserId,
-                        Type = (byte)PlayerDataType.PlayerID,
-                        Data = writer.Data
-                    },
-                    DeliveryMethod.ReliableOrdered);
+                SendPacket(writer, Player, PlayerDataType.PlayerID);
             }
 
 
@@ -335,15 +229,7 @@
                         Z = Player.Position.z,
                     };
                     writer.Put<Position>(NetworkData.Position);
-                    NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                        NPManager.Singleton.NetworkListener, 
-                        new UpdatePlayerInfoPacket() 
-                        { 
-                            UserID = Player.UserId,
-                            Type = (byte)PlayerDataType.Position,
-                            Data = writer.Data
-                        }, 
-                        DeliveryMethod.ReliableOrdered);
+                    SendPacket(writer, Player, PlayerDataType.Position);
                 }
             }
 
@@ -359,15 +245,7 @@
                         Z = Player.Rotation.z,
                     };
                     writer.Put<Rotation>(NetworkData.Rotation);
-                    NPManager.Singleton.PacketProcessor.Send<UpdatePlayerInfoPacket>(
-                        NPManager.Singleton.NetworkListener,
-                        new UpdatePlayerInfoPacket()
-                        {
-                            UserID = Player.UserId,
-                            Type = (byte)PlayerDataType.Rotation,
-                            Data = writer.Data
-                        },
-                        DeliveryMethod.ReliableOrdered);
+                    SendPacket(writer, Player, PlayerDataType.Rotation);
                 }
             }
         }
