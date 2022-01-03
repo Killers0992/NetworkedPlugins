@@ -31,10 +31,13 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override Version RequiredExiledVersion { get; } = new Version(4, 0, 0);
 
+        private string LastId;
+
         /// <inheritdoc/>
         public override void OnEnabled()
         {
-            harmony = new Harmony($"networkedplugins.{DateTime.Now.Ticks}");
+            LastId = $"networkedplugins.{DateTime.Now.Ticks}";
+            harmony = new Harmony(LastId);
             harmony.PatchAll();
 
             Singleton = this;
@@ -45,7 +48,7 @@ namespace NetworkedPlugins
         /// <inheritdoc/>
         public override void OnDisabled()
         {
-            harmony.UnpatchAll();
+            harmony.UnpatchAll(LastId);
             harmony = null;
 
             Singleton = null;
