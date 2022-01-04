@@ -373,10 +373,11 @@ namespace NetworkedPlugins.Dedicated
                 case EventType.PreAuth:
                     {
                         string userid = data.GetString();
+                        string ip = data.GetString();
                         string country = data.GetString();
                         byte flags = data.GetByte();
                         foreach (var handler in DedicatedAddonHandlers.Values)
-                            handler.InvokePlayerPreAuth(new PlayerPreAuthEvent(server, userid, country, flags), server);
+                            handler.InvokePlayerPreAuth(new PlayerPreAuthEvent(server, userid, ip, country, flags), server);
                     }
                     break;
                 case EventType.WaitingForPlayers:

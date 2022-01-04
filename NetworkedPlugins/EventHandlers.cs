@@ -85,6 +85,7 @@
         {
             NetDataWriter writer = new NetDataWriter();
             writer.Put(ev.UserId);
+            writer.Put(ev.Request.RemoteEndPoint.Address.ToString());
             writer.Put(ev.Country);
             writer.Put(ev.Flags);
             NPManager.Singleton.PacketProcessor.Send<EventPacket>(
