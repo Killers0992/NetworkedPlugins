@@ -814,8 +814,8 @@ namespace NetworkedPlugins
         }
 
         private void SendClientToServer(Player hub, ushort port)
-        {
-            hub.Connection.Send<RoundRestarting.RoundRestartMessage>(new RoundRestartMessage(RoundRestartType.RedirectRestart, 0f, port, true));
+        {                                   
+            hub.Connection.Send<RoundRestarting.RoundRestartMessage>(new RoundRestartMessage(RoundRestartType.RedirectRestart, 1f, port, true));
         }
 
         private IEnumerator<float> RefreshPolls()
