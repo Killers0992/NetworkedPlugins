@@ -815,19 +815,7 @@ namespace NetworkedPlugins
 
         private void SendClientToServer(Player hub, ushort port)
         {
-            var serverPS = hub.ReferenceHub.playerStats;
-            PooledNetworkWriter writer = NetworkWriterPool.GetWriter();
-            writer.WriteSingle(1f);
-            writer.WriteUInt16(port);
-            RpcMessage msg = new RpcMessage
-            {
-                netId = serverPS.netId,
-                componentIndex = serverPS.ComponentIndex,
-                functionHash = GetMethodHash(typeof(PlayerStats), "RpcRoundrestartRedirect"),
-                payload = writer.ToArraySegment(),
-            };
-            hub.Connection.Send<RpcMessage>(msg, 0);
-            NetworkWriterPool.Recycle(writer);
+            hub.Connection.Send<RoundRestarting.RoundRestartMessage>(new RoundRestartMessage(RoundRestartType.RedirectRestart, 0f, port, true));
         }
 
         private IEnumerator<float> RefreshPolls()
