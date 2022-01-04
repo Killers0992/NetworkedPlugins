@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NetworkedPlugins.API.Events;
 using static NetworkedPlugins.API.Events.NPEventHandler;
+using NetworkedPlugins.API.Events.Server;
 
 namespace NetworkedPlugins.API
 {
@@ -133,6 +134,39 @@ namespace NetworkedPlugins.API
                 return;
 
             addon.InvokePlayerLocalReport(ev);
+        }
+
+        public CustomEventHandler<PlayerPreAuthEvent> PlayerPreAuth { get; set; }
+        public void InvokePlayerPreAuth(PlayerPreAuthEvent ev, NPServer server)
+        {
+            PlayerPreAuth.InvokeSafely(ev);
+
+            if (!AddonInstances.TryGetValue(server, out IAddonDedicated<IConfig, IConfig> addon))
+                return;
+
+            addon.InvokePlayerPreAuth(ev);
+        }
+
+        public CustomEventHandler<WaitingForPlayersEvent> WaitingForPlayers { get; set; }
+        public void InvokeWaitingForPlayers(WaitingForPlayersEvent ev, NPServer server)
+        {
+            WaitingForPlayers.InvokeSafely(ev);
+
+            if (!AddonInstances.TryGetValue(server, out IAddonDedicated<IConfig, IConfig> addon))
+                return;
+
+            addon.InvokeWaitingForPlayers(ev);
+        }
+
+        public CustomEventHandler<RoundEndedEvent> RoundEnded { get; set; }
+        public void InvokeRoundEnded(RoundEndedEvent ev, NPServer server)
+        {
+            RoundEnded.InvokeSafely(ev);
+
+            if (!AddonInstances.TryGetValue(server, out IAddonDedicated<IConfig, IConfig> addon))
+                return;
+
+            addon.InvokeRoundEnded(ev);
         }
     }
 }

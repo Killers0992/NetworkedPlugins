@@ -13,6 +13,7 @@ namespace NetworkedPlugins.API
     using NetworkedPlugins.API.Events.Player;
     using static NetworkedPlugins.API.Events.NPEventHandler;
     using NetworkedPlugins.API.Extensions;
+    using NetworkedPlugins.API.Events.Server;
 
     /// <summary>
     /// Network Dedicated Addon.
@@ -156,5 +157,14 @@ namespace NetworkedPlugins.API
 
         public CustomEventHandler<PlayerLocalReportEvent> PlayerLocalReport { get; set; }
         public void InvokePlayerLocalReport(PlayerLocalReportEvent ev) => PlayerLocalReport.InvokeSafely(ev);
+
+        public CustomEventHandler<PlayerPreAuthEvent> PlayerPreAuth { get; set; }
+        public void InvokePlayerPreAuth(PlayerPreAuthEvent ev) => PlayerPreAuth.InvokeSafely(ev);
+
+        public CustomEventHandler<WaitingForPlayersEvent> WaitingForPlayers { get; set; }
+        public void InvokeWaitingForPlayers(WaitingForPlayersEvent ev) => WaitingForPlayers.InvokeSafely(ev);
+
+        public CustomEventHandler<RoundEndedEvent> RoundEnded { get; set; }
+        public void InvokeRoundEnded(RoundEndedEvent ev) => RoundEnded.InvokeSafely(ev);
     }
 }

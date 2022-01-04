@@ -1,4 +1,5 @@
 ﻿using NetworkedPlugins.API.Events.Player;
+using NetworkedPlugins.API.Events.Server;
 using NetworkedPlugins.API.Models;
 using System;
 using System.Collections.Generic;
@@ -56,5 +57,14 @@ namespace NetworkedPlugins.API.Interfaces
 
         CustomEventHandler<PlayerLocalReportEvent> PlayerLocalReport { get; set; }
         void InvokePlayerLocalReport(PlayerLocalReportEvent ev, NPServer server);
+
+        CustomEventHandler<PlayerPreAuthEvent> PlayerPreAuth { get; set; }
+        void InvokePlayerPreAuth(PlayerPreAuthEvent ev, NPServer server);
+
+        CustomEventHandler<WaitingForPlayersEvent> WaitingForPlayers { get; set; }
+        void InvokeWaitingForPlayers(WaitingForPlayersEvent ev, NPServer server);
+
+        CustomEventHandler<RoundEndedEvent> RoundEnded { get; set; }
+        void InvokeRoundEnded(RoundEndedEvent ev, NPServer server);
     }
 }

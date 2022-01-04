@@ -21,6 +21,7 @@ namespace NetworkedPlugins.Dedicated
     using NetworkedPlugins.API.Packets.ClientPackets;
     using NetworkedPlugins.API.Events.Player;
     using NetworkedPlugins.API.Extensions;
+    using NetworkedPlugins.API.Events.Server;
 
     /// <summary>
     /// Dedicated host.
@@ -367,6 +368,27 @@ namespace NetworkedPlugins.Dedicated
 
                         foreach (var handler in DedicatedAddonHandlers.Values)
                             handler.InvokePlayerLocalReport(new PlayerLocalReportEvent(plr, target, reason), server);
+                    }
+                    break;
+                case EventType.PreAuth:
+                    {
+                        string userid = data.GetString();
+                        string country = data.GetString();
+                        byte flags = data.GetByte();
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokePlayerPreAuth(new PlayerPreAuthEvent(userid, country, flags), server);
+                    }
+                    break;
+                case EventType.WaitingForPlayers:
+                    {
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokeWaitingForPlayers(new WaitingForPlayersEvent(), server);
+                    }
+                    break;
+                case EventType.RoundEnded:
+                    {
+                        foreach (var handler in DedicatedAddonHandlers.Values)
+                            handler.InvokeRoundEnded(new RoundEndedEvent(), server);
                     }
                     break;
             }

@@ -18,13 +18,18 @@
             Exiled.Events.Handlers.Player.Verified += Player_Verified;
             Exiled.Events.Handlers.Player.Destroying += Player_Destroying;
             Exiled.Events.Handlers.Server.WaitingForPlayers += Server_WaitingForPlayers;
+            Exiled.Events.Handlers.Player.PreAuthenticating += Player_PreAuthenticating;
+            Exiled.Events.Handlers.Server.RoundEnded += Server_RoundEnded;
         }
 
         public void UnregisterEvents()
         {
-            Exiled.Events.Handlers.Player.Destroying -= Player_Destroying;
+            Exiled.Events.Handlers.Server.LocalReporting -= Server_LocalReporting;
             Exiled.Events.Handlers.Player.Verified -= Player_Verified;
+            Exiled.Events.Handlers.Player.Destroying -= Player_Destroying;
             Exiled.Events.Handlers.Server.WaitingForPlayers -= Server_WaitingForPlayers;
+            Exiled.Events.Handlers.Player.PreAuthenticating -= Player_PreAuthenticating;
+            Exiled.Events.Handlers.Server.RoundEnded -= Server_RoundEnded;
         }
 
 
@@ -48,6 +53,14 @@
         {
             if (Client.NetworkListener == null)
                 Client.StartNetworkClient();
+            NPManager.Singleton.PacketProcessor.Send<EventPacket>(
+                NPManager.Singleton.NetworkListener,
+                new EventPacket()
+                {
+                    Type = (byte)EventType.WaitingForPlayers,
+                    Data = new byte[0],
+                },
+                DeliveryMethod.ReliableOrdered);
         }
 
 
@@ -66,5 +79,35 @@
                 },
                 DeliveryMethod.ReliableOrdered);
         }
+
+
+        private void Player_PreAuthenticating(PreAuthenticatingEventArgs ev)
+        {
+            NetDataWriter writer = new NetDataWriter();
+            writer.Put(ev.UserId);
+            writer.Put(ev.Country);
+            writer.Put(ev.Flags);
+            NPManager.Singleton.PacketProcessor.Send<EventPacket>(
+                NPManager.Singleton.NetworkListener,
+                new EventPacket()
+                {
+                    Type = (byte)EventType.PreAuth,
+                    Data = writer.Data
+                },
+                DeliveryMethod.ReliableOrdered);
+        }
+
+        private void Server_RoundEnded(RoundEndedEventArgs ev)
+        {
+            NPManager.Singleton.PacketProcessor.Send<EventPacket>(
+                NPManager.Singleton.NetworkListener,
+                new EventPacket()
+                {
+                    Type = (byte)EventType.RoundEnded,
+                    Data = new byte[0],
+                },
+                DeliveryMethod.ReliableOrdered);
+        }
+
     }
 }

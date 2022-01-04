@@ -11,5 +11,8 @@ namespace NetworkedPlugins.API.Enums
         PlayerJoined,
         PlayerLeft,
         PlayerLocalReport,
+        PreAuth,
+        WaitingForPlayers,
+        RoundEnded
     }
 }
