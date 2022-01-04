@@ -376,19 +376,19 @@ namespace NetworkedPlugins.Dedicated
                         string country = data.GetString();
                         byte flags = data.GetByte();
                         foreach (var handler in DedicatedAddonHandlers.Values)
-                            handler.InvokePlayerPreAuth(new PlayerPreAuthEvent(userid, country, flags), server);
+                            handler.InvokePlayerPreAuth(new PlayerPreAuthEvent(server, userid, country, flags), server);
                     }
                     break;
                 case EventType.WaitingForPlayers:
                     {
                         foreach (var handler in DedicatedAddonHandlers.Values)
-                            handler.InvokeWaitingForPlayers(new WaitingForPlayersEvent(), server);
+                            handler.InvokeWaitingForPlayers(new WaitingForPlayersEvent(server), server);
                     }
                     break;
                 case EventType.RoundEnded:
                     {
                         foreach (var handler in DedicatedAddonHandlers.Values)
-                            handler.InvokeRoundEnded(new RoundEndedEvent(), server);
+                            handler.InvokeRoundEnded(new RoundEndedEvent(server), server);
                     }
                     break;
             }
