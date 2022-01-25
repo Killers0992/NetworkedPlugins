@@ -61,7 +61,7 @@ namespace NetworkedPlugins.API
             AddonInstances.Add(targetServer, addon);
         }
 
-        public TConfig Config { get; }
+        public TConfig Config { get; } = new TConfig();
 
         public virtual void OnDisable()
         {

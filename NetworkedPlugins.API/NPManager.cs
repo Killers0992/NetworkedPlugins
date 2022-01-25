@@ -10,6 +10,7 @@ namespace NetworkedPlugins.API
     using YamlDotNet.Serialization.NamingConventions;
     using NetworkedPlugins.API.Extensions;
     using System.Reflection;
+    using System;
 
     /// <summary>
     /// Network Manager.
@@ -103,6 +104,25 @@ namespace NetworkedPlugins.API
             File.WriteAllText(Path.Combine(addon.AddonPath, "config.yml"), Serializer.Serialize(cfg));
             addon.Config.CopyProperties(cfg);
         }
+
+        /// <summary>
+        /// Load addon config.
+        /// </summary>
+        /// <param name="addon">Addon.</param>
+        public void LoadAddonConfig(IAddonHandler<IConfig> addon)
+        {
+            if (!Directory.Exists(addon.DefaultAddon.AddonPath))
+                Directory.CreateDirectory(addon.DefaultAddon.AddonPath);
+
+            if (!File.Exists(Path.Combine(addon.DefaultAddon.AddonPath, "config.yml")))
+                File.WriteAllText(Path.Combine(addon.DefaultAddon.AddonPath, "config.yml"), Serializer.Serialize(addon.Config));
+
+            var cfg = (IConfig)Deserializer.Deserialize(File.ReadAllText(Path.Combine(addon.DefaultAddon.AddonPath, "config.yml")), addon.Config.GetType());
+
+            File.WriteAllText(Path.Combine(addon.DefaultAddon.AddonPath, "config.yml"), Serializer.Serialize(cfg));
+            addon.Config.CopyProperties(cfg);
+        }
+
 
 
         /// <summary>

@@ -139,6 +139,8 @@ namespace NetworkedPlugins.Dedicated
                             field2 = property2.GetBackingField();
                             field2.SetValue(addonHandler, addon);
 
+                            LoadAddonConfig(addonHandler);
+
                             try
                             {
                                 addonHandler.OnEnable();
@@ -162,6 +164,7 @@ namespace NetworkedPlugins.Dedicated
                                     RegisterCommand(addon, cmd);
                                 }
                             }
+
 
                             AddonAssemblies.Add(a, addon.AddonId);
                             DedicatedAddonHandlers.Add(addon.AddonId, addonHandler);
